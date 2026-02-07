@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowLeft, 
   Plus, 
@@ -33,6 +34,7 @@ interface Rewards {
 export default function QuizBuilder() {
   const { courseId, quizId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isNew = quizId === "new";
   
   const [quizTitle, setQuizTitle] = useState(isNew ? "" : "Module 1 Quiz");
@@ -116,6 +118,49 @@ export default function QuizBuilder() {
     });
   };
 
+  const handleSaveQuiz = () => {
+    if (!quizTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a quiz title",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (questions.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one question",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const quizData = {
+      id: quizId === "new" ? Date.now().toString() : quizId,
+      courseId,
+      title: quizTitle,
+      questions,
+      rewards,
+      createdAt: new Date().toISOString(),
+    };
+
+    const existingQuizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
+    const updatedQuizzes = quizId === "new"
+      ? [...existingQuizzes, quizData]
+      : existingQuizzes.map((q: any) => q.id === quizId ? quizData : q);
+    
+    localStorage.setItem("quizzes", JSON.stringify(updatedQuizzes));
+
+    toast({
+      title: "Success",
+      description: "Quiz saved successfully",
+    });
+
+    navigate(`/admin/courses/${courseId}`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -141,7 +186,7 @@ export default function QuizBuilder() {
               <Trophy className="h-4 w-4 mr-2" />
               Rewards
             </Button>
-            <Button variant="glow">
+            <Button variant="glow" onClick={handleSaveQuiz}>
               <Save className="h-4 w-4 mr-2" />
               Save Quiz
             </Button>

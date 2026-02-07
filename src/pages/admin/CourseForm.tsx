@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LessonItem, type LessonType, type LessonStatus } from "@/components/courses/LessonItem";
+import { ContentDialog } from "@/components/courses/ContentDialog";
 import {
   Select,
   SelectContent,
@@ -92,17 +93,25 @@ export default function CourseForm() {
   } : mockCourse);
   
   const [activeTab, setActiveTab] = useState("content");
-  const [isLessonDialogOpen, setIsLessonDialogOpen] = useState(false);
-  const [newLessonTitle, setNewLessonTitle] = useState("");
-  const [newLessonType, setNewLessonType] = useState<LessonType>("video");
+  const [isContentDialogOpen, setIsContentDialogOpen] = useState(false);
+  const [lessons, setLessons] = useState(mockLessons);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
 
-  const handleAddLesson = () => {
-    if (newLessonTitle.trim()) {
-      // In real app, add lesson via API
-      setIsLessonDialogOpen(false);
-      setNewLessonTitle("");
-      setNewLessonType("video");
-    }
+  // Load quizzes for this course
+  useState(() => {
+    const allQuizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
+    const courseQuizzes = allQuizzes.filter((q: any) => q.courseId === id);
+    setQuizzes(courseQuizzes);
+  });
+
+  const handleAddContent = (content: any) => {
+    const newLesson = {
+      id: content.id,
+      title: content.title,
+      type: content.type,
+      duration: content.duration || content.fileName,
+    };
+    setLessons([...lessons, newLesson]);
   };
 
   return (
@@ -138,6 +147,9 @@ export default function CourseForm() {
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate("/admin/courses/new")}>
               New
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${id}/reporting`)}>
+              View Reporting
             </Button>
             <Button variant="outline" size="sm">
               <Mail className="h-4 w-4 mr-2" />
@@ -205,58 +217,14 @@ export default function CourseForm() {
                 <div className="bg-card border border-border rounded-xl p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold">Lessons</h3>
-                    <Dialog open={isLessonDialogOpen} onOpenChange={setIsLessonDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Content
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add Lesson</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 pt-4">
-                          <div className="space-y-2">
-                            <Label>Lesson Title</Label>
-                            <Input
-                              placeholder="Enter lesson title..."
-                              value={newLessonTitle}
-                              onChange={(e) => setNewLessonTitle(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Content Type</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              {lessonTypes.map((type) => (
-                                <button
-                                  key={type.value}
-                                  onClick={() => setNewLessonType(type.value as LessonType)}
-                                  className={`flex items-center gap-2 p-3 rounded-lg border transition-all ${
-                                    newLessonType === type.value
-                                      ? "border-primary bg-primary/10"
-                                      : "border-border hover:border-primary/50"
-                                  }`}
-                                >
-                                  <type.icon className="h-5 w-5" />
-                                  <span>{type.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setIsLessonDialogOpen(false)}>
-                              Cancel
-                            </Button>
-                            <Button onClick={handleAddLesson}>Add Lesson</Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <Button size="sm" onClick={() => setIsContentDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Content
+                    </Button>
                   </div>
 
                   <div className="space-y-2">
-                    {mockLessons.map((lesson) => (
+                    {lessons.map((lesson) => (
                       <LessonItem
                         key={lesson.id}
                         {...lesson}
@@ -370,16 +338,48 @@ export default function CourseForm() {
               </TabsContent>
 
               <TabsContent value="quiz" className="mt-6">
-                <div className="bg-card border border-border rounded-xl p-6 text-center">
-                  <HelpCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="font-semibold mb-2">No Quizzes Yet</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Create quizzes to test learner knowledge
-                  </p>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Quiz
-                  </Button>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold">Quizzes</h3>
+                    <Button size="sm" onClick={() => navigate(`/admin/courses/${id}/quiz/new`)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Quiz
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {quizzes.map((quiz) => (
+                      <div
+                        key={quiz.id}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/50 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <HelpCircle className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium">{quiz.title}</p>
+                            <p className="text-sm text-muted-foreground">{quiz.questions?.length || 0} questions</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/admin/courses/${id}/quiz/${quiz.id}`)}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    ))}
+                    {quizzes.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <HelpCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p className="mb-4">No quizzes yet</p>
+                        <Button onClick={() => navigate(`/admin/courses/${id}/quiz/new`)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Quiz
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -397,6 +397,12 @@ export default function CourseForm() {
           </div>
         </div>
       </div>
+
+      <ContentDialog
+        open={isContentDialogOpen}
+        onOpenChange={setIsContentDialogOpen}
+        onSave={handleAddContent}
+      />
     </div>
   );
 }
