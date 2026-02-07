@@ -173,7 +173,7 @@ const getQuizByLessonId = async (lessonId) => {
 const getQuizQuestions = async (quizId) => {
   const result = await db.query(
     `SELECT qq.*, 
-     json_agg(json_build_object('id', qo.id, 'text', qo.option_text, 'order', qo.order_index) 
+     json_agg(json_build_object('id', qo.id, 'text', qo.option_text, 'is_correct', qo.is_correct, 'order', qo.order_index) 
        ORDER BY qo.order_index) as options
      FROM quiz_questions qq
      LEFT JOIN quiz_options qo ON qq.id = qo.question_id
@@ -183,6 +183,35 @@ const getQuizQuestions = async (quizId) => {
     [quizId]
   );
   return result.rows;
+};
+
+const getModuleQuiz = async (moduleId) => {
+  const result = await db.query(
+    `SELECT mq.*, 
+     json_agg(json_build_object(
+       'id', qq.id, 
+       'text', qq.question_text,
+       'type', qq.question_type,
+       'points', qq.points,
+       'order', qq.order_index,
+       'options', (
+         SELECT json_agg(json_build_object(
+           'id', qo.id,
+           'text', qo.option_text,
+           'is_correct', qo.is_correct,
+           'order', qo.order_index
+         ) ORDER BY qo.order_index)
+         FROM quiz_options qo
+         WHERE qo.question_id = qq.id
+       )
+     ) ORDER BY qq.order_index) as questions
+     FROM module_quizzes mq
+     LEFT JOIN quiz_questions qq ON mq.id = qq.quiz_id
+     WHERE mq.module_id = $1
+     GROUP BY mq.id`,
+    [moduleId]
+  );
+  return result.rows[0];
 };
 
 const submitQuizAttempt = async (enrollmentId, quizId, attemptNumber, score, pointsEarned, isPassed) => {
@@ -211,5 +240,6 @@ export default {
   getCourseReviews,
   getQuizByLessonId,
   getQuizQuestions,
+  getModuleQuiz,
   submitQuizAttempt,
 };

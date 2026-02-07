@@ -19,6 +19,8 @@ export interface CourseCardProps {
   status?: "not-started" | "in-progress" | "completed";
   isPaid?: boolean;
   price?: number;
+  isEnrolled?: boolean;
+  isLoggedIn?: boolean;
   onClick?: () => void;
 }
 
@@ -36,19 +38,25 @@ export function CourseCard({
   status,
   isPaid,
   price,
+  isEnrolled,
+  isLoggedIn,
   onClick
 }: CourseCardProps) {
   const getActionButton = () => {
-    if (status === "completed") {
-      return <Button variant="outline" size="sm" className="w-full">Review Course</Button>;
+    // Not logged in - show Join Course
+    if (!isLoggedIn) {
+      return <Button variant="default" size="sm" className="w-full">Join Course</Button>;
     }
-    if (status === "in-progress") {
-      return <Button variant="glow" size="sm" className="w-full">Continue</Button>;
-    }
-    if (isPaid && price) {
+    // Paid course and not enrolled - show Buy button
+    if (isPaid && !isEnrolled) {
       return <Button variant="gradient" size="sm" className="w-full">Buy ${price}</Button>;
     }
-    return <Button variant="default" size="sm" className="w-full">Start Learning</Button>;
+    // Course in progress - show Continue
+    if (progress && progress > 0) {
+      return <Button variant="glow" size="sm" className="w-full">Continue</Button>;
+    }
+    // Enrolled but not started - show Start
+    return <Button variant="default" size="sm" className="w-full">Start</Button>;
   };
 
   return (
@@ -79,7 +87,7 @@ export function CourseCard({
         </div>
 
         {/* Rating overlay */}
-        {rating && (
+        {rating && typeof rating === 'number' && (
           <div className="absolute top-3 right-3 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-full px-2 py-1">
             <Star className="h-3 w-3 text-warning fill-warning" />
             <span className="text-xs font-medium">{rating.toFixed(1)}</span>

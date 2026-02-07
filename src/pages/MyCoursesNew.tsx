@@ -56,28 +56,90 @@ const badgeLevels = [
 export default function MyCoursesNew() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = localStorage.getItem("currentUser");
-    if (user) {
-      setCurrentUser(JSON.parse(user));
-    }
+    const loadUserData = () => {
+      const user = localStorage.getItem("currentUser");
+      if (user) {
+        const userData = JSON.parse(user);
+        console.log('MyCoursesNew - Loaded user data:', userData);
+        setCurrentUser(userData);
+        
+        // Fetch enrolled courses
+        fetch(`http://localhost:3001/api/users/${userData.id}/enrollments`)
+          .then(res => res.json())
+          .then(data => {
+            setEnrolledCourses(data);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error(err);
+            setLoading(false);
+          });
+      }
+    };
+
+    loadUserData();
+
+    // Reload user data when window regains focus
+    window.addEventListener('focus', loadUserData);
+    return () => window.removeEventListener('focus', loadUserData);
   }, []);
 
-  const filteredCourses = mockCourses.filter((course) =>
-    course.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCourses = enrolledCourses.filter((enrollment) =>
+    enrollment.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const userPoints = currentUser?.points || 20;
-  const currentBadge = badgeLevels.reduce((prev, curr) => 
-    userPoints >= curr.points ? curr : prev
-  , badgeLevels[0]);
+  const userPoints = currentUser?.total_points || 0;
+  
+  const getBadgeProgress = (points: number) => {
+    const levels = [
+      { name: "Newbie", points: 0, next: 20 },
+      { name: "Explorer", points: 20, next: 40 },
+      { name: "Achiever", points: 40, next: 60 },
+      { name: "Specialist", points: 60, next: 80 },
+      { name: "Expert", points: 80, next: 100 },
+      { name: "Master", points: 100, next: 120 },
+    ];
+    
+    let current = levels[0];
+    for (const level of levels) {
+      if (points >= level.points) current = level;
+    }
+    
+    if (points >= 120) {
+      return { badge: { name: "Master", color: "text-yellow-400" }, progress: 100 };
+    }
+    
+    const progressToNext = ((points - current.points) / (current.next - current.points)) * 100;
+    const badgeColors: Record<string, string> = {
+      "Newbie": "text-gray-400",
+      "Explorer": "text-blue-400",
+      "Achiever": "text-green-400",
+      "Specialist": "text-purple-400",
+      "Expert": "text-orange-400",
+      "Master": "text-yellow-400"
+    };
+    
+    return { 
+      badge: { name: current.name, color: badgeColors[current.name] },
+      progress: progressToNext
+    };
+  };
+  
+  const { badge: currentBadge, progress: circleProgress } = getBadgeProgress(userPoints);
 
-  const getButtonText = (course: any) => {
-    if (course.price > 0 && !course.isPaid) return "Buy Course";
-    if (course.status === "in-progress") return "Continue";
-    if (course.status === "not-started") return "Start";
-    return "Join Course";
+  const getButtonText = (enrollment: any) => {
+    if (enrollment.progress_percentage > 0) return "Continue";
+    return "Start";
+  };
+
+  const getStatus = (enrollment: any) => {
+    if (enrollment.is_completed) return "completed";
+    if (enrollment.progress_percentage > 0) return "in-progress";
+    return "not-started";
   };
 
   return (
@@ -102,10 +164,15 @@ export default function MyCoursesNew() {
           {/* Main Content - My Courses */}
           <div>
             <h2 className="text-2xl font-bold mb-6">My Courses</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              {filteredCourses.map((course, index) => (
+            {loading ? (
+              <p className="text-muted-foreground">Loading...</p>
+            ) : filteredCourses.length === 0 ? (
+              <p className="text-muted-foreground">No enrolled courses yet.</p>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-6">
+                {filteredCourses.map((enrollment, index) => (
                 <motion.div
-                  key={course.id}
+                  key={enrollment.course_id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
@@ -113,54 +180,40 @@ export default function MyCoursesNew() {
                   <Card className="glass border-border overflow-hidden hover:border-primary/50 transition-all h-full flex flex-col">
                     <div className="aspect-video relative overflow-hidden">
                       <img
-                        src={course.image}
-                        alt={course.title}
+                        src={enrollment.cover_image_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800'}
+                        alt={enrollment.title}
                         className="w-full h-full object-cover"
                       />
-                      {course.price > 0 && !course.isPaid && (
-                        <div className="absolute top-2 right-2 bg-success/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-semibold">
-                          INR {course.price}
-                        </div>
-                      )}
-                      {course.isPaid && (
-                        <Badge className="absolute top-2 right-2 bg-success">Paid</Badge>
-                      )}
                     </div>
                     <CardContent className="p-4 space-y-3 flex-1 flex flex-col">
-                      <h3 className="font-semibold text-lg line-clamp-1">{course.title}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2 flex-1">
-                        {course.description}
-                      </p>
-                      <div className="flex gap-2">
-                        {course.tags.map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                      {course.status === "in-progress" && (
+                      <h3 className="font-semibold text-lg line-clamp-1">{enrollment.title}</h3>
+                      <Badge variant="secondary" className="text-xs w-fit">
+                        {enrollment.category}
+                      </Badge>
+                      {getStatus(enrollment) === "in-progress" && (
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Progress</span>
-                            <span>{course.progress}%</span>
+                            <span>{Math.round(enrollment.progress_percentage)}%</span>
                           </div>
-                          <Progress value={course.progress} className="h-2" />
+                          <Progress value={enrollment.progress_percentage} className="h-2" />
                         </div>
                       )}
                       <Button
                         className="w-full mt-auto"
-                        variant={course.price > 0 && !course.isPaid ? "default" : "glow"}
+                        variant="glow"
                         asChild
                       >
-                        <Link to={`/courses/${course.id}`}>
-                          {getButtonText(course)}
+                        <Link to={`/courses/${enrollment.course_id}`}>
+                          {getButtonText(enrollment)}
                         </Link>
                       </Button>
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Sidebar - My Profile */}
@@ -189,7 +242,7 @@ export default function MyCoursesNew() {
                         stroke="currentColor"
                         strokeWidth="8"
                         fill="none"
-                        strokeDasharray={`${(userPoints / 120) * 351.86} 351.86`}
+                        strokeDasharray={`${(circleProgress / 100) * 351.86} 351.86`}
                         className="text-primary transition-all duration-500"
                       />
                     </svg>

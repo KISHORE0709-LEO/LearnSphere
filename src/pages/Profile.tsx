@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import ActivityHeatmap from "@/components/profile/ActivityHeatmap";
+import LearningStats from "@/components/profile/LearningStats";
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
@@ -18,7 +20,25 @@ export default function Profile() {
     if (!currentUser) {
       navigate("/login");
     } else {
-      setUser(JSON.parse(currentUser));
+      const userData = JSON.parse(currentUser);
+      setUser(userData);
+      
+      if (userData.id) {
+        fetch(`http://localhost:3001/api/users/${userData.id}`)
+          .then(res => {
+            if (!res.ok) throw new Error('User not found');
+            return res.json();
+          })
+          .then(data => {
+            const updatedUser = { ...userData, ...data };
+            setUser(updatedUser);
+            localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+          })
+          .catch(err => {
+            console.error('Failed to fetch user data:', err);
+            // Continue with localStorage data if API fails
+          });
+      }
     }
   }, [navigate]);
 
@@ -106,7 +126,7 @@ export default function Profile() {
                   <Calendar className="h-5 w-5 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Member Since</p>
-                    <p className="font-medium">{formatDate(user.createdAt)}</p>
+                    <p className="font-medium">{user.created_at ? formatDate(user.created_at) : 'N/A'}</p>
                   </div>
                 </div>
 
@@ -116,15 +136,15 @@ export default function Profile() {
                       <Trophy className="h-5 w-5 text-primary" />
                       <div>
                         <p className="text-sm text-muted-foreground">Total Points</p>
-                        <p className="font-medium">{user.points || 0}</p>
+                        <p className="font-medium">{user.total_points || 0}</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
                       <Star className="h-5 w-5 text-primary" />
                       <div>
-                        <p className="text-sm text-muted-foreground">Badges Earned</p>
-                        <p className="font-medium">{user.badges?.length || 0}</p>
+                        <p className="text-sm text-muted-foreground">Badge Level</p>
+                        <p className="font-medium">{user.badge_level || 'Newbie'}</p>
                       </div>
                     </div>
                   </>
@@ -146,6 +166,28 @@ export default function Profile() {
               </div>
             </CardContent>
           </Card>
+
+          {user.role === "learner" && (
+            <>
+              <Card className="glass-strong border-border">
+                <CardHeader>
+                  <CardTitle>Learning Statistics</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <LearningStats userId={user.id} />
+                </CardContent>
+              </Card>
+
+              <Card className="glass-strong border-border">
+                <CardHeader>
+                  <CardTitle>Activity Overview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ActivityHeatmap userId={user.id} />
+                </CardContent>
+              </Card>
+            </>
+          )}
         </motion.div>
       </div>
     </div>

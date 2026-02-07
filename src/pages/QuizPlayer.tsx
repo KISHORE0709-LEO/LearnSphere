@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -12,70 +12,93 @@ import {
   RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Mock quiz data
-const mockQuiz = {
-  id: "1",
-  title: "Module 1 Quiz",
-  questions: [
-    {
-      id: "q1",
-      text: "What is the main purpose of the Compound Components pattern?",
-      options: [
-        { id: "a", text: "To reduce bundle size" },
-        { id: "b", text: "To create flexible, declarative APIs for components" },
-        { id: "c", text: "To improve performance" },
-        { id: "d", text: "To enable server-side rendering" },
-      ],
-      correctAnswer: "b",
-    },
-    {
-      id: "q2",
-      text: "Which hook is essential for implementing the Context pattern?",
-      options: [
-        { id: "a", text: "useState" },
-        { id: "b", text: "useEffect" },
-        { id: "c", text: "useContext" },
-        { id: "d", text: "useReducer" },
-      ],
-      correctAnswer: "c",
-    },
-    {
-      id: "q3",
-      text: "What problem does the Render Props pattern solve?",
-      options: [
-        { id: "a", text: "State management" },
-        { id: "b", text: "Code reuse and sharing behavior between components" },
-        { id: "c", text: "Styling components" },
-        { id: "d", text: "API calls" },
-      ],
-      correctAnswer: "b",
-    },
-  ],
-  rewards: {
-    firstTry: 20,
-    secondTry: 15,
-    thirdTry: 10,
-    moreTries: 5,
-  },
-};
+import { useToast } from "@/hooks/use-toast";
 
 type QuizState = "intro" | "question" | "result";
 
 export default function QuizPlayer() {
   const { courseId, quizId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
+  const [quiz, setQuiz] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [state, setState] = useState<QuizState>("intro");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [attempt, setAttempt] = useState(1);
-  const [showResult, setShowResult] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const currentQuestion = mockQuiz.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / mockQuiz.questions.length) * 100;
-  const isLastQuestion = currentQuestionIndex === mockQuiz.questions.length - 1;
+  useEffect(() => {
+    const user = localStorage.getItem("currentUser");
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      try {
+        console.log('Fetching quiz with ID:', quizId);
+        const res = await fetch(`http://localhost:3001/api/quiz/${quizId}`);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Quiz fetch failed:', res.status, errorText);
+          throw new Error('Quiz not found');
+        }
+        
+        const data = await res.json();
+        console.log('Quiz loaded:', data);
+        setQuiz(data);
+      } catch (error: any) {
+        console.error('Error fetching quiz:', error);
+        toast({ 
+          title: "Error", 
+          description: error.message || "Failed to load quiz", 
+          variant: "destructive" 
+        });
+        setQuiz(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (quizId) {
+      fetchQuiz();
+    } else {
+      setLoading(false);
+      setQuiz(null);
+    }
+  }, [quizId, toast]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!quiz) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <p className="text-muted-foreground">Quiz not found</p>
+          <Button onClick={() => navigate(-1)} className="mt-4">Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = quiz.questions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
+  const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1;
 
   const handleStartQuiz = () => {
     setState("question");
@@ -95,8 +118,52 @@ export default function QuizPlayer() {
     setAnswers(newAnswers);
     
     if (isLastQuestion) {
-      // Calculate score
       setState("result");
+      
+      // Calculate score with newAnswers (not state)
+      const score = Object.keys(newAnswers).reduce((correct, qId) => {
+        const q = quiz.questions.find((question: any) => question.id === qId);
+        const selectedOpt = q?.options.find((opt: any) => opt.id === newAnswers[qId]);
+        return correct + (selectedOpt?.is_correct ? 1 : 0);
+      }, 0);
+      
+      const percentage = (score / quiz.questions.length) * 100;
+      const passed = percentage >= quiz.passing_score;
+      
+      // Calculate points with score
+      const points = passed ? (
+        attempt === 1 ? quiz.rewards.firstTry :
+        attempt === 2 ? quiz.rewards.secondTry :
+        attempt === 3 ? quiz.rewards.thirdTry :
+        quiz.rewards.moreTries
+      ) : 0;
+      
+      console.log('Quiz completed:', { score, percentage, passed, points, attempt });
+      
+      if (passed && currentUser) {
+        fetch(`http://localhost:3001/api/quiz/${quizId}/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            courseId, 
+            passed: true, 
+            userId: currentUser.id,
+            points,
+            attemptNumber: attempt
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          console.log('Quiz completion response:', data);
+          if (data.user) {
+            const updatedUser = { ...currentUser, total_points: data.user.total_points, badge_level: data.user.badge_level };
+            console.log('Updating localStorage with:', updatedUser);
+            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            setCurrentUser(updatedUser);
+          }
+        })
+        .catch(err => console.error('Failed to save quiz completion:', err));
+      }
     } else {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
@@ -105,8 +172,10 @@ export default function QuizPlayer() {
 
   const calculateScore = () => {
     let correct = 0;
-    mockQuiz.questions.forEach(q => {
-      if (answers[q.id] === q.correctAnswer) {
+    quiz.questions.forEach((q: any) => {
+      const selectedOptionId = answers[q.id];
+      const selectedOption = q.options.find((opt: any) => opt.id === selectedOptionId);
+      if (selectedOption?.is_correct) {
         correct++;
       }
     });
@@ -115,14 +184,14 @@ export default function QuizPlayer() {
 
   const getPoints = () => {
     const score = calculateScore();
-    const percentage = (score / mockQuiz.questions.length) * 100;
-    if (percentage < 70) return 0; // Must pass to earn points
+    const percentage = (score / quiz.questions.length) * 100;
+    if (percentage < quiz.passing_score) return 0;
     
     switch (attempt) {
-      case 1: return mockQuiz.rewards.firstTry;
-      case 2: return mockQuiz.rewards.secondTry;
-      case 3: return mockQuiz.rewards.thirdTry;
-      default: return mockQuiz.rewards.moreTries;
+      case 1: return quiz.rewards.firstTry;
+      case 2: return quiz.rewards.secondTry;
+      case 3: return quiz.rewards.thirdTry;
+      default: return quiz.rewards.moreTries;
     }
   };
 
@@ -143,7 +212,7 @@ export default function QuizPlayer() {
         {state === "question" && (
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              Question {currentQuestionIndex + 1} of {mockQuiz.questions.length}
+              Question {currentQuestionIndex + 1} of {quiz.questions.length}
             </span>
             <Progress value={progress} className="w-32 h-2" />
           </div>
@@ -165,14 +234,14 @@ export default function QuizPlayer() {
               <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                 <Trophy className="h-10 w-10 text-primary" />
               </div>
-              <h1 className="text-2xl font-bold mb-4">{mockQuiz.title}</h1>
+              <h1 className="text-2xl font-bold mb-4">{quiz.title}</h1>
               <div className="text-muted-foreground mb-8 space-y-2">
-                <p>{mockQuiz.questions.length} Questions</p>
+                <p>{quiz.questions.length} Questions</p>
                 <p>Multiple attempts allowed</p>
                 <p className="text-sm">
-                  First try: {mockQuiz.rewards.firstTry} pts • 
-                  Second: {mockQuiz.rewards.secondTry} pts • 
-                  Third: {mockQuiz.rewards.thirdTry} pts
+                  First try: {quiz.rewards.firstTry} pts • 
+                  Second: {quiz.rewards.secondTry} pts • 
+                  Third: {quiz.rewards.thirdTry} pts
                 </p>
               </div>
               <Button variant="glow" size="lg" onClick={handleStartQuiz}>
@@ -193,7 +262,7 @@ export default function QuizPlayer() {
               <h2 className="text-xl font-semibold mb-8">{currentQuestion.text}</h2>
               
               <div className="space-y-3 mb-8">
-                {currentQuestion.options.map((option) => (
+                {currentQuestion.options.map((option: any) => (
                   <button
                     key={option.id}
                     onClick={() => handleSelectAnswer(option.id)}
@@ -243,14 +312,14 @@ export default function QuizPlayer() {
               animate={{ opacity: 1, scale: 1 }}
               className="text-center max-w-md"
             >
-              {calculateScore() >= Math.ceil(mockQuiz.questions.length * 0.7) ? (
+              {calculateScore() >= Math.ceil(quiz.questions.length * (quiz.passing_score / 100)) ? (
                 <>
                   <div className="h-24 w-24 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
                     <CheckCircle2 className="h-12 w-12 text-success" />
                   </div>
                   <h2 className="text-2xl font-bold mb-2">Congratulations!</h2>
                   <p className="text-muted-foreground mb-4">
-                    You scored {calculateScore()}/{mockQuiz.questions.length}
+                    You scored {calculateScore()}/{quiz.questions.length}
                   </p>
                   <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-8">
                     <p className="text-lg font-semibold text-primary">
@@ -268,16 +337,16 @@ export default function QuizPlayer() {
                   </div>
                   <h2 className="text-2xl font-bold mb-2">Keep Learning!</h2>
                   <p className="text-muted-foreground mb-4">
-                    You scored {calculateScore()}/{mockQuiz.questions.length}
+                    You scored {calculateScore()}/{quiz.questions.length}
                   </p>
                   <p className="text-sm text-muted-foreground mb-8">
-                    You need 70% to pass and earn points.
+                    You need {quiz.passing_score}% to pass and earn points.
                   </p>
                 </>
               )}
               
               <div className="flex gap-3 justify-center">
-                <Button variant="outline" onClick={() => navigate(-1)}>
+                <Button variant="outline" onClick={() => navigate(`/courses/${courseId}`)}>
                   Back to Course
                 </Button>
                 <Button variant="glow" onClick={handleRetry}>

@@ -19,6 +19,7 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import Courses from "@/pages/Courses";
 import MyCoursesNew from "@/pages/MyCoursesNew";
 import CourseDetailNew from "@/pages/CourseDetailNew";
+import CourseDetailModular from "@/pages/CourseDetailModular";
 import LessonPlayer from "@/pages/LessonPlayer";
 import QuizPlayer from "@/pages/QuizPlayer";
 import NotFound from "@/pages/NotFound";
@@ -57,11 +58,11 @@ const App = () => (
           {/* Protected Routes */}
           <Route element={<MainLayout />}>
             <Route path="/my-courses" element={<ProtectedRoute><MyCoursesNew /></ProtectedRoute>} />
-            <Route path="/courses/:id" element={<ProtectedRoute><CourseDetailNew /></ProtectedRoute>} />
+            <Route path="/courses/:id" element={<ProtectedRoute><CourseDetailModular /></ProtectedRoute>} />
           </Route>
           
           {/* Full-screen Players */}
-          <Route path="/learn/:courseId/lesson/:lessonId" element={<ProtectedRoute><LessonPlayer /></ProtectedRoute>} />
+          <Route path="/learn/:courseId/module/:moduleId/topic/:topicId" element={<ProtectedRoute><LessonPlayer /></ProtectedRoute>} />
           <Route path="/learn/:courseId/quiz/:quizId" element={<ProtectedRoute><QuizPlayer /></ProtectedRoute>} />
 
           {/* Admin Routes - Only Admin & Instructor */}

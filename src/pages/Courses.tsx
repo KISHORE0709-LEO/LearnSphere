@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CourseCard } from "@/components/courses/CourseCard";
-import { Search, Filter, Grid3X3, List } from "lucide-react";
+import { Search, Grid3X3, List } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data
 const mockCourses = [
@@ -83,21 +84,73 @@ export default function Courses() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleCourseClick = (courseId: string) => {
-    const user = localStorage.getItem("currentUser");
-    if (!user) {
+  useEffect(() => {
+    const userStr = localStorage.getItem("currentUser");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      setCurrentUser(user);
+      
+      // Fetch enrollments
+      fetch(`http://localhost:3001/api/users/${user.id}/enrollments`)
+        .then(res => res.json())
+        .then(data => setEnrollments(data))
+        .catch(err => console.error(err));
+    }
+
+    fetch('http://localhost:3001/api/courses')
+      .then(res => res.json())
+      .then(data => {
+        setCourses(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleCourseClick = async (courseId: string, isEnrolled: boolean, isPaid: boolean) => {
+    if (!currentUser) {
       navigate("/login");
+      return;
+    }
+
+    if (isPaid && !isEnrolled) {
+      toast({ title: "Payment Required", description: "This is a paid course" });
+      return;
+    }
+
+    if (!isEnrolled) {
+      try {
+        const res = await fetch('http://localhost:3001/api/enrollments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUser.id, courseId })
+        });
+
+        if (res.ok) {
+          toast({ title: "Success", description: "Enrolled in course!" });
+          navigate(`/courses/${courseId}`);
+        }
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to enroll", variant: "destructive" });
+      }
     } else {
       navigate(`/courses/${courseId}`);
     }
   };
 
-  const filteredCourses = mockCourses.filter(course => {
+  const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All" || 
-      course.tags.some(tag => tag.toLowerCase().includes(selectedCategory.toLowerCase()));
+      course.tags?.some((tag: string) => tag.toLowerCase().includes(selectedCategory.toLowerCase()));
     return matchesSearch && matchesCategory;
   });
 
@@ -168,25 +221,47 @@ export default function Courses() {
         </motion.div>
 
         {/* Courses Grid */}
-        <div className={
-          viewMode === "grid"
-            ? "grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
-            : "flex flex-col gap-4"
-        }>
-          {filteredCourses.map((course, index) => (
-            <motion.div
-              key={course.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <CourseCard
-                {...course}
-                onClick={() => handleCourseClick(course.id)}
-              />
-            </motion.div>
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground">Loading courses...</p>
+          </div>
+        ) : (
+          <div className={
+            viewMode === "grid"
+              ? "grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              : "flex flex-col gap-4"
+          }>
+            {filteredCourses.map((course, index) => {
+              const enrollment = enrollments.find(e => e.course_id === course.id);
+              const isEnrolled = !!enrollment;
+              const progress = enrollment?.progress_percentage || 0;
+              
+              return (
+              <motion.div
+                key={course.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <CourseCard
+                  {...course}
+                  image={course.cover_image_url}
+                  tags={course.tags || []}
+                  duration={`${Math.floor(course.estimated_duration / 60)}h ${course.estimated_duration % 60}m`}
+                  lessonsCount={0}
+                  rating={course.average_rating}
+                  studentsCount={course.total_enrollments}
+                  isEnrolled={isEnrolled}
+                  isLoggedIn={!!currentUser}
+                  progress={progress}
+                  isPaid={course.is_paid}
+                  price={course.price}
+                  onClick={() => handleCourseClick(course.id, isEnrolled, course.is_paid)}
+                />
+              </motion.div>
+            );})}
+          </div>
+        )}
 
         {filteredCourses.length === 0 && (
           <motion.div
