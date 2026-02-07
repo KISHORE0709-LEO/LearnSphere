@@ -78,7 +78,7 @@ export function Navbar() {
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/admin">
                   <LayoutDashboard className="h-4 w-4 mr-2" />
-                  {currentUser.role === "admin" ? "Dashboard" : "Instructor"}
+                  {currentUser.role === "instructor" ? "Dashboard" : "Instructor"}
                 </Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
@@ -146,7 +146,7 @@ export function Navbar() {
             ))}
             <div className="border-t border-border my-2" />
             <Link to="/admin" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              {currentUser?.role === "admin" ? "Dashboard" : "Instructor Dashboard"}
+              {currentUser?.role === "instructor" ? "Dashboard" : "Instructor Dashboard"}
             </Link>
             {currentUser ? (
               <Link to="/profile" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">

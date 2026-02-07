@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GraduationCap, Loader2 } from "lucide-react";
+import { GraduationCap, Loader2, Eye, EyeOff, BookOpen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +13,11 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "learner" as "learner" | "instructor",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -106,8 +109,10 @@ export default function Register() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        role: users.length === 0 ? "admin" : "user",
+        role: formData.role,
         createdAt: new Date().toISOString(),
+        points: 0,
+        badges: [],
       };
 
       users.push(newUser);
@@ -149,6 +154,38 @@ export default function Register() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label>I am a</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleChange("role", "learner")}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    formData.role === "learner"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <BookOpen className="h-6 w-6 mx-auto mb-2 text-primary" />
+                  <p className="font-medium">Learner</p>
+                  <p className="text-xs text-muted-foreground mt-1">Browse & learn courses</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChange("role", "instructor")}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    formData.role === "instructor"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <Users className="h-6 w-6 mx-auto mb-2 text-primary" />
+                  <p className="font-medium">Instructor</p>
+                  <p className="text-xs text-muted-foreground mt-1">Create & manage courses</p>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
@@ -180,14 +217,24 @@ export default function Register() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={(e) => handleChange("password", e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(e) => handleChange("password", e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password}</p>
               )}
@@ -195,14 +242,24 @@ export default function Register() {
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Re-Enter Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Re-enter your password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Re-enter your password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.confirmPassword && (
                 <p className="text-sm text-destructive">{errors.confirmPassword}</p>
               )}

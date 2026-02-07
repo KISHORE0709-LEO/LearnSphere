@@ -1,73 +1,167 @@
-# Welcome to your Lovable project
+# 📘 LearnSphere – eLearning Platform
 
-## Project info
+LearnSphere is a modern, role-based eLearning platform designed to deliver a complete digital learning experience for **learners**, **instructors**, and **administrators**.  
+The platform focuses on course creation, lesson delivery, quizzes, progress tracking, and a gamified points & badges system.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+This project is built as an **academic / hackathon project** with a futuristic dark UI and scalable frontend architecture.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 🚀 Features
 
-**Use Lovable**
+### 👩‍🎓 Learner (Student)
+- Browse published courses
+- Join, start, and continue courses
+- Full-screen lesson player (Video / Document / Image / Quiz)
+- Attempt quizzes with multiple attempts
+- Earn points based on quiz attempt number
+- Badge levels based on total points
+- Track course progress and completion
+- View ratings and reviews
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+### 👨‍🏫 Instructor / Course Manager
+- Create and manage courses
+- Add lessons (video, document, image)
+- Build quizzes with reward rules
+- Publish / unpublish courses
+- Manage course content
+- View learner progress and reporting
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 🛠 Admin
+- Full access to all instructor features
+- Platform-level monitoring and reporting
+- Manage courses and users
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🧱 System Modules
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Module A – Instructor / Admin Backoffice
+- Courses dashboard (Kanban & List view)
+- Course creation and editing
+- Lesson and content management
+- Quiz builder with configurable rewards
+- Course publishing controls
+- Reporting dashboard for learner progress
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Module B – Learner Website / App
+- Course browsing and discovery
+- My Courses dashboard
+- Course detail and progress tracking
+- Full-screen lesson and quiz player
+- Points and badge system
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 🎯 Gamification Rules
+- Multiple quiz attempts are allowed
+- Points decrease with more attempts
+- Total points decide badge level:
+  - Newbie
+  - Explorer
+  - Achiever
+  - Specialist
+  - Expert
+  - Master
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🧑‍💻 Tech Stack
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
+### Frontend
+- React + TypeScript
 - Tailwind CSS
+- Framer Motion
+- Space Grotesk Font
+- Component-based UI architecture
 
-## How can I deploy this project?
+### Backend (Planned / In Progress)
+- Firebase / Supabase
+- Authentication and role-based access control
+- Persistent storage for users, courses, and progress
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+---
+src/
+├── components/
+│ ├── ui/
+│ ├── Navbar.tsx
+│ ├── CourseCard.tsx
+│ └── LessonItem.tsx
+├── layouts/
+│ ├── MainLayout.tsx
+│ └── AdminLayout.tsx
+├── pages/
+│ ├── Landing.tsx
+│ ├── Courses.tsx
+│ ├── CourseDetail.tsx
+│ ├── LessonPlayer.tsx
+│ ├── AdminDashboard.tsx
+│ └── QuizBuilder.tsx
+├── context/
+│ └── AuthContext.tsx
+├── utils/
+└── App.tsx
 
-## Can I connect a custom domain to my Lovable project?
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🔐 User Roles
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+| Role | Description |
+|------|------------|
+| Admin | Full platform access |
+| Instructor | Create and manage courses |
+| Learner | Consume courses and quizzes |
+
+User role controls:
+- Visible pages
+- Allowed actions
+- Access permissions
+
+---
+
+## ⚙️ Setup Instructions
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/your-username/learnsphere.git
+cd learnsphere
+
+### 2. Install dependencies
+```bash
+npm install
+
+### 3. Run the project
+```bash
+npm run dev
+
+---
+
+## 🧪 Demo Mode
+This project currently demonstrates role-based behavior and features using mock data / local storage.
+Backend integration is planned for full data persistence and authentication.
+
+---
+
+## 📌 Future Enhancements
+- Backend integration (Firebase / Supabase)
+- Real authentication and authorization
+- Payment gateway for paid courses
+- Email invitations for learners
+- Advanced analytics and reporting
+- Mobile application support
+
+---
+
+## Academic Note
+This project is developed for academic and hackathon purposes to demonstrate:
+
+- Role-based system design
+- Frontend architecture
+- UI/UX principles
+- Scalable eLearning platform concepts
+

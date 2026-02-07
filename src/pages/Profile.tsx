@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { User, Mail, Calendar, Shield, LogOut } from "lucide-react";
+import { User, Mail, Calendar, Shield, LogOut, Trophy, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -71,8 +71,8 @@ export default function Profile() {
                 </Avatar>
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold">{user.name}</h2>
-                  <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                    {user.role === "admin" ? "Administrator" : "User"}
+                  <Badge variant={user.role === "instructor" ? "default" : "secondary"}>
+                    {user.role === "instructor" ? "Instructor" : "Learner"}
                   </Badge>
                 </div>
               </div>
@@ -109,15 +109,35 @@ export default function Profile() {
                     <p className="font-medium">{formatDate(user.createdAt)}</p>
                   </div>
                 </div>
+
+                {user.role === "learner" && (
+                  <>
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+                      <Trophy className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Points</p>
+                        <p className="font-medium">{user.points || 0}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+                      <Star className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Badges Earned</p>
+                        <p className="font-medium">{user.badges?.length || 0}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
-                  onClick={() => navigate(user.role === "admin" ? "/admin" : "/courses")}
+                  onClick={() => navigate(user.role === "instructor" ? "/admin" : "/courses")}
                   className="flex-1"
                 >
-                  Go to {user.role === "admin" ? "Dashboard" : "Courses"}
+                  Go to {user.role === "instructor" ? "Dashboard" : "Courses"}
                 </Button>
                 <Button variant="destructive" onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />

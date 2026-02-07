@@ -23,7 +23,9 @@ import NotFound from "@/pages/NotFound";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminCourses from "@/pages/admin/AdminCourses";
+import AdminCoursesNew from "@/pages/admin/AdminCoursesNew";
+import AdminAttendees from "@/pages/admin/AdminAttendees";
+import AdminSettings from "@/pages/admin/AdminSettings";
 import CourseForm from "@/pages/admin/CourseForm";
 import AdminReporting from "@/pages/admin/AdminReporting";
 import QuizBuilder from "@/pages/admin/QuizBuilder";
@@ -58,9 +60,11 @@ const App = () => (
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
-            <Route path="courses" element={<AdminCourses />} />
+            <Route path="courses" element={<AdminCoursesNew />} />
             <Route path="courses/:id" element={<CourseForm />} />
             <Route path="courses/:courseId/quiz/:quizId" element={<QuizBuilder />} />
+            <Route path="attendees" element={<AdminAttendees />} />
+            <Route path="settings" element={<AdminSettings />} />
             <Route path="reporting" element={<AdminReporting />} />
           </Route>
 

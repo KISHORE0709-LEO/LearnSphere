@@ -136,30 +136,31 @@ export default function CourseForm() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 mr-4">
-              <Label htmlFor="publish" className="text-sm">Publish</Label>
+            <Button variant="outline" size="sm" onClick={() => navigate("/admin/courses/new")}>
+              New
+            </Button>
+            <Button variant="outline" size="sm">
+              <Mail className="h-4 w-4 mr-2" />
+              Contact Attendees
+            </Button>
+            <Button variant="outline" size="sm">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Attendees
+            </Button>
+            
+            <div className="flex items-center gap-2 ml-4 px-4 border-l border-border">
+              <Label htmlFor="publish" className="text-sm">Share on web / Publish on website</Label>
               <Switch 
                 id="publish"
                 checked={course.isPublished}
                 onCheckedChange={(checked) => setCourse({ ...course, isPublished: checked })}
+                className="data-[state=checked]:bg-success"
               />
             </div>
             
             <Button variant="outline" size="sm">
               <Eye className="h-4 w-4 mr-2" />
               Preview
-            </Button>
-            <Button variant="outline" size="sm">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Attendees
-            </Button>
-            <Button variant="outline" size="sm">
-              <Mail className="h-4 w-4 mr-2" />
-              Contact
-            </Button>
-            <Button variant="glow" size="sm">
-              <Save className="h-4 w-4 mr-2" />
-              Save
             </Button>
           </div>
         </div>
