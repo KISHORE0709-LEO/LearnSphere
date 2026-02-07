@@ -83,9 +83,10 @@ export default function CourseReporting() {
         <p className="text-muted-foreground">Track learner progress and completion</p>
       </div>
 
-      <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+      <div className="grid lg:grid-cols-[280px_1fr] gap-6 items-start">
         {/* Left Sidebar - Column Selector */}
-        <Card className="glass border-border h-fit">
+        <div className="lg:pt-[52px]">
+          <Card className="glass border-border h-fit">
           <CardHeader>
             <CardTitle className="text-base">Customizable Table</CardTitle>
             <p className="text-xs text-muted-foreground">Pick which columns to show/hide</p>
@@ -117,13 +118,14 @@ export default function CourseReporting() {
             ))}
           </CardContent>
         </Card>
+        </div>
 
         {/* Main Content */}
         <div className="space-y-8">
           {/* Overview Cards */}
-          <div>
+          <div className="mb-8">
             <h2 className="text-lg font-semibold mb-6">Overview</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card
                 className="glass border-border cursor-pointer hover:border-primary/50 transition-all"
                 onClick={() => setFilterStatus(null)}

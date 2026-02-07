@@ -22,21 +22,27 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const user = users.find((u: any) => u.email === email && u.password === password);
+      const response = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
 
-      if (user) {
-        localStorage.setItem("currentUser", JSON.stringify(user));
-        toast({
-          title: "Success",
-          description: "Logged in successfully!",
-        });
-        navigate(user.role === "instructor" ? "/admin" : "/courses");
-      } else {
-        setError("Invalid Email or Password");
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Invalid Email or Password');
+        return;
       }
+
+      localStorage.setItem("currentUser", JSON.stringify(data.user));
+      toast({
+        title: "Success",
+        description: "Logged in successfully!",
+      });
+      navigate(data.user.role === "instructor" ? "/admin" : "/courses");
     } catch (err) {
-      setError("An error occurred. Please try again.");
+      setError("Server error. Please try again.");
     } finally {
       setLoading(false);
     }

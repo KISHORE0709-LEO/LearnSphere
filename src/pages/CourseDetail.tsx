@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { LessonItem, type LessonType, type LessonStatus } from "@/components/courses/LessonItem";
+import ReviewsSection from "@/components/courses/ReviewsSection";
 import { 
   ArrowLeft, 
   Play, 
@@ -52,9 +53,27 @@ const mockLessons: Array<{
 ];
 
 const mockReviews = [
-  { id: "1", name: "Sarah M.", rating: 5, text: "Excellent course! The compound components section was particularly enlightening." },
-  { id: "2", name: "John D.", rating: 4, text: "Great content, well structured. Would love more practical examples." },
-  { id: "3", name: "Mike R.", rating: 5, text: "Best React course I've taken. The instructor explains complex topics very clearly." },
+  { 
+    id: "1", 
+    userName: "Sarah M.", 
+    rating: 5, 
+    comment: "Excellent course! The compound components section was particularly enlightening.",
+    date: "2024-01-15"
+  },
+  { 
+    id: "2", 
+    userName: "John D.", 
+    rating: 4, 
+    comment: "Great content, well structured. Would love more practical examples.",
+    date: "2024-01-10"
+  },
+  { 
+    id: "3", 
+    userName: "Mike R.", 
+    rating: 5, 
+    comment: "Best React course I've taken. The instructor explains complex topics very clearly.",
+    date: "2024-01-05"
+  },
 ];
 
 export default function CourseDetail() {
@@ -62,6 +81,19 @@ export default function CourseDetail() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+  const [reviews, setReviews] = useState(mockReviews);
+
+  const handleAddReview = (rating: number, comment: string) => {
+    const user = JSON.parse(localStorage.getItem("currentUser") || "{}");
+    const newReview = {
+      id: String(reviews.length + 1),
+      userName: user.name || "Current User",
+      rating,
+      comment,
+      date: new Date().toISOString().split('T')[0],
+    };
+    setReviews([newReview, ...reviews]);
+  };
 
   const filteredLessons = mockLessons.filter(lesson =>
     lesson.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -207,50 +239,13 @@ export default function CourseDetail() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-card border border-border rounded-xl p-6"
             >
-              {/* Rating Summary */}
-              <div className="flex items-center gap-6 mb-8 pb-6 border-b border-border">
-                <div className="text-center">
-                  <p className="text-5xl font-bold text-gradient">{mockCourse.rating}</p>
-                  <div className="flex items-center gap-1 my-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star 
-                        key={star} 
-                        className={`h-5 w-5 ${star <= Math.round(mockCourse.rating) ? "text-warning fill-warning" : "text-muted"}`}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{mockCourse.reviewsCount} reviews</p>
-                </div>
-
-                <Button variant="outline">
-                  Add Review
-                </Button>
-              </div>
-
-              {/* Reviews List */}
-              <div className="space-y-6">
-                {mockReviews.map((review) => (
-                  <div key={review.id} className="flex gap-4">
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      <User className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{review.name}</span>
-                        <div className="flex items-center gap-0.5">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star 
-                              key={star} 
-                              className={`h-3 w-3 ${star <= review.rating ? "text-warning fill-warning" : "text-muted"}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{review.text}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ReviewsSection
+                courseId={mockCourse.id}
+                averageRating={mockCourse.rating}
+                totalReviews={reviews.length}
+                reviews={reviews}
+                onAddReview={handleAddReview}
+              />
             </motion.div>
           </TabsContent>
         </Tabs>

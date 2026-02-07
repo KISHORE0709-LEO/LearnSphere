@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server.js",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:test": "node database/test-connection.js",
+    "db:setup": "node database/setup.js"
   },
   "dependencies": {
     "@fontsource/space-grotesk": "^5.2.10",
@@ -64,7 +67,12 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "pg": "^8.11.3",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

@@ -69,31 +69,12 @@ export default function Register() {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
-    // Validate name
-    if (!formData.name.trim()) {
-      newErrors.name = "Name must not be empty";
-    }
-
-    // Validate email
-    if (!validateEmail(formData.email)) {
-      newErrors.email = "Email must be in a valid format";
-    } else {
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      if (users.some((u: any) => u.email === formData.email)) {
-        newErrors.email = "Email already exists";
-      }
-    }
-
-    // Validate password
+    if (!formData.name.trim()) newErrors.name = "Name must not be empty";
+    if (!validateEmail(formData.email)) newErrors.email = "Email must be in a valid format";
+    
     const passwordError = validatePassword(formData.password);
-    if (passwordError) {
-      newErrors.password = passwordError;
-    }
-
-    // Validate confirm password
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
+    if (passwordError) newErrors.password = passwordError;
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -103,21 +84,25 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const newUser = {
-        id: Date.now().toString(),
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-        createdAt: new Date().toISOString(),
-        points: 0,
-        badges: [],
-      };
+      const response = await fetch('http://localhost:3001/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role
+        })
+      });
 
-      users.push(newUser);
-      localStorage.setItem("users", JSON.stringify(users));
-      localStorage.setItem("currentUser", JSON.stringify(newUser));
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrors({ email: data.error });
+        return;
+      }
+
+      localStorage.setItem("currentUser", JSON.stringify(data.user));
 
       toast({
         title: "Success",
@@ -128,7 +113,7 @@ export default function Register() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "An error occurred. Please try again.",
+        description: "Server error. Please try again.",
         variant: "destructive",
       });
     } finally {

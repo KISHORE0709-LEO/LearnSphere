@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   BookOpen, 
@@ -16,13 +16,14 @@ import { cn } from "@/lib/utils";
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/courses", label: "Courses" },
-  { href: "/my-courses", label: "My Learning" },
+  { href: "/my-courses", label: "My Courses" },
 ];
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const user = localStorage.getItem("currentUser");
@@ -30,6 +31,13 @@ export function Navbar() {
       setCurrentUser(JSON.parse(user));
     }
   }, [location]);
+
+  const handleProtectedLink = (href: string, e: React.MouseEvent) => {
+    if (!currentUser && (href === '/my-courses' || href.startsWith('/courses/'))) {
+      e.preventDefault();
+      navigate('/login');
+    }
+  };
 
   return (
     <motion.header 
@@ -53,6 +61,7 @@ export function Navbar() {
             <Link
               key={link.href}
               to={link.href}
+              onClick={(e) => handleProtectedLink(link.href, e)}
               className={cn(
                 "text-sm font-medium transition-colors relative py-1",
                 location.pathname === link.href 
@@ -75,12 +84,14 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {currentUser ? (
             <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/admin">
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  {currentUser.role === "instructor" ? "Dashboard" : "Instructor"}
-                </Link>
-              </Button>
+              {(currentUser.role === 'instructor' || currentUser.role === 'admin') && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/admin">
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Link>
+                </Button>
+              )}
               <Button variant="outline" size="sm" asChild>
                 <Link to="/profile">
                   <User className="h-4 w-4 mr-2" />
@@ -90,12 +101,6 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/admin">
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Instructor
-                </Link>
-              </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/login">
                   <LogIn className="h-4 w-4 mr-2" />
@@ -133,7 +138,7 @@ export function Navbar() {
               <Link
                 key={link.href}
                 to={link.href}
-                onClick={() => setIsOpen(false)}
+                onClick={(e) => { handleProtectedLink(link.href, e); setIsOpen(false); }}
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                   location.pathname === link.href 
@@ -145,9 +150,11 @@ export function Navbar() {
               </Link>
             ))}
             <div className="border-t border-border my-2" />
-            <Link to="/admin" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              {currentUser?.role === "instructor" ? "Dashboard" : "Instructor Dashboard"}
-            </Link>
+            {(currentUser?.role === 'instructor' || currentUser?.role === 'admin') && (
+              <Link to="/admin" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+                Dashboard
+              </Link>
+            )}
             {currentUser ? (
               <Link to="/profile" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
                 Profile

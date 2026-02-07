@@ -85,6 +85,15 @@ export default function Courses() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const navigate = useNavigate();
 
+  const handleCourseClick = (courseId: string) => {
+    const user = localStorage.getItem("currentUser");
+    if (!user) {
+      navigate("/login");
+    } else {
+      navigate(`/courses/${courseId}`);
+    }
+  };
+
   const filteredCourses = mockCourses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All" || 
@@ -173,7 +182,7 @@ export default function Courses() {
             >
               <CourseCard
                 {...course}
-                onClick={() => navigate(`/courses/${course.id}`)}
+                onClick={() => handleCourseClick(course.id)}
               />
             </motion.div>
           ))}

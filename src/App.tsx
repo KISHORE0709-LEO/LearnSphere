@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import RoleProtectedRoute from "@/components/RoleProtectedRoute";
 
 // Layouts
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -15,8 +17,8 @@ import Register from "@/pages/Register";
 import Profile from "@/pages/Profile";
 import ForgotPassword from "@/pages/ForgotPassword";
 import Courses from "@/pages/Courses";
-import MyCourses from "@/pages/MyCourses";
-import CourseDetail from "@/pages/CourseDetail";
+import MyCoursesNew from "@/pages/MyCoursesNew";
+import CourseDetailNew from "@/pages/CourseDetailNew";
 import LessonPlayer from "@/pages/LessonPlayer";
 import QuizPlayer from "@/pages/QuizPlayer";
 import NotFound from "@/pages/NotFound";
@@ -44,22 +46,30 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
           {/* Public Routes */}
           <Route element={<MainLayout />}>
             <Route path="/" element={<Landing />} />
             <Route path="/courses" element={<Courses />} />
-            <Route path="/my-courses" element={<MyCourses />} />
-            <Route path="/courses/:id" element={<CourseDetail />} />
+          </Route>
+          
+          {/* Protected Routes */}
+          <Route element={<MainLayout />}>
+            <Route path="/my-courses" element={<ProtectedRoute><MyCoursesNew /></ProtectedRoute>} />
+            <Route path="/courses/:id" element={<ProtectedRoute><CourseDetailNew /></ProtectedRoute>} />
           </Route>
           
           {/* Full-screen Players */}
-          <Route path="/learn/:courseId/lesson/:lessonId" element={<LessonPlayer />} />
-          <Route path="/learn/:courseId/quiz/:quizId" element={<QuizPlayer />} />
+          <Route path="/learn/:courseId/lesson/:lessonId" element={<ProtectedRoute><LessonPlayer /></ProtectedRoute>} />
+          <Route path="/learn/:courseId/quiz/:quizId" element={<ProtectedRoute><QuizPlayer /></ProtectedRoute>} />
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
+          {/* Admin Routes - Only Admin & Instructor */}
+          <Route path="/admin" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'instructor']}>
+              <AdminLayout />
+            </RoleProtectedRoute>
+          }>
             <Route index element={<AdminDashboard />} />
             <Route path="courses" element={<AdminCoursesNew />} />
             <Route path="courses/:id" element={<CourseForm />} />
