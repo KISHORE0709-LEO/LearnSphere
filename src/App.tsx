@@ -10,6 +10,10 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 
 // Public Pages
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import Profile from "@/pages/Profile";
+import ForgotPassword from "@/pages/ForgotPassword";
 import Courses from "@/pages/Courses";
 import MyCourses from "@/pages/MyCourses";
 import CourseDetail from "@/pages/CourseDetail";
@@ -33,6 +37,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Auth Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/profile" element={<Profile />} />
+
           {/* Public Routes */}
           <Route element={<MainLayout />}>
             <Route path="/" element={<Landing />} />

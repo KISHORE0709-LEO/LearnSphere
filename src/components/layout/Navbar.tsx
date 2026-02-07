@@ -10,7 +10,7 @@ import {
   User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -21,7 +21,15 @@ const navLinks = [
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const location = useLocation();
+
+  useEffect(() => {
+    const user = localStorage.getItem("currentUser");
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    }
+  }, [location]);
 
   return (
     <motion.header 
@@ -36,7 +44,7 @@ export function Navbar() {
             <GraduationCap className="h-8 w-8 text-primary transition-transform group-hover:scale-110" />
             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-          <span className="text-xl font-bold text-gradient">LearnSphere</span>
+          <span className="text-xl font-bold text-primary">LearnSphere</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -65,21 +73,40 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/admin">
-              <LayoutDashboard className="h-4 w-4 mr-2" />
-              Instructor
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/login">
-              <LogIn className="h-4 w-4 mr-2" />
-              Sign In
-            </Link>
-          </Button>
-          <Button variant="glow" size="sm" asChild>
-            <Link to="/register">Get Started</Link>
-          </Button>
+          {currentUser ? (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/admin">
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  {currentUser.role === "admin" ? "Dashboard" : "Instructor"}
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/profile">
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/admin">
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  Instructor
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/login">
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Sign In
+                </Link>
+              </Button>
+              <Button variant="glow" size="sm" asChild>
+                <Link to="/register">Get Started</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -119,16 +146,22 @@ export function Navbar() {
             ))}
             <div className="border-t border-border my-2" />
             <Link to="/admin" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              Instructor Dashboard
+              {currentUser?.role === "admin" ? "Dashboard" : "Instructor Dashboard"}
             </Link>
-            <div className="flex gap-2 mt-2">
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link to="/login">Sign In</Link>
-              </Button>
-              <Button variant="glow" size="sm" className="flex-1" asChild>
-                <Link to="/register">Get Started</Link>
-              </Button>
-            </div>
+            {currentUser ? (
+              <Link to="/profile" onClick={() => setIsOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+                Profile
+              </Link>
+            ) : (
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" size="sm" className="flex-1" asChild>
+                  <Link to="/login">Sign In</Link>
+                </Button>
+                <Button variant="glow" size="sm" className="flex-1" asChild>
+                  <Link to="/register">Get Started</Link>
+                </Button>
+              </div>
+            )}
           </div>
         </motion.div>
       )}

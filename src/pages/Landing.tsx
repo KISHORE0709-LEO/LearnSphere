@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Star
 } from "lucide-react";
+import Spline from '@splinetool/react-spline';
 import heroBg from "@/assets/hero-bg.jpg";
 
 const features = [
@@ -55,14 +56,14 @@ export default function Landing() {
           <img 
             src={heroBg} 
             alt="" 
-            className="w-full h-full object-cover opacity-40"
+            className="w-full h-full object-cover opacity-80 brightness-110 saturate-150"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/80 to-background" />
-          <div className="absolute inset-0 bg-grid opacity-20" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/60 to-background" />
         </div>
 
         {/* Content */}
         <div className="container mx-auto px-4 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
           <div className="max-w-3xl">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -114,16 +115,15 @@ export default function Landing() {
               </Button>
             </motion.div>
           </div>
-        </div>
 
-        {/* Floating elements */}
-        <motion.div 
-          className="absolute right-10 top-1/3 hidden lg:block"
-          animate={{ y: [0, -20, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <div className="h-64 w-64 rounded-3xl bg-gradient-primary opacity-20 blur-3xl" />
-        </motion.div>
+          {/* Spline Robot */}
+          <div className="hidden lg:block h-[700px] w-full">
+            <Spline
+              scene="https://prod.spline.design/rU2-Ks0SC0T5od9B/scene.splinecode"
+            />
+          </div>
+          </div>
+        </div>
       </section>
 
       {/* Stats Section */}
