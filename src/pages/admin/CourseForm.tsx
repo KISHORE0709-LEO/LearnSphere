@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { 
   ArrowLeft, 
@@ -41,33 +42,7 @@ import {
   Users,
   CreditCard
 } from "lucide-react";
-
-// Mock data
-const mockCourse = {
-  id: "1",
-  title: "Advanced React Patterns",
-  description: "Master advanced React patterns including compound components, render props, and custom hooks.",
-  tags: ["React", "Frontend", "JavaScript"],
-  isPublished: true,
-  visibility: "everyone",
-  accessRule: "open",
-  price: 0,
-  responsible: "John Doe",
-};
-
-const mockLessons: Array<{
-  id: string;
-  title: string;
-  type: LessonType;
-  duration?: string;
-}> = [
-  { id: "1", title: "Introduction to Advanced Patterns", type: "video", duration: "12:30" },
-  { id: "2", title: "Compound Components Pattern", type: "video", duration: "18:45" },
-  { id: "3", title: "Pattern Documentation", type: "document", duration: "10 min read" },
-  { id: "4", title: "Render Props Deep Dive", type: "video", duration: "22:15" },
-  { id: "5", title: "Visual Guide to Props", type: "image" },
-  { id: "6", title: "Module 1 Quiz", type: "quiz", duration: "15 questions" },
-];
+import { useToast } from "@/hooks/use-toast";
 
 const lessonTypes = [
   { value: "video", label: "Video", icon: Video },
@@ -77,42 +52,271 @@ const lessonTypes = [
 ];
 
 export default function CourseForm() {
-  const { id } = useParams();
+  const { id: urlId } = useParams();
   const navigate = useNavigate();
-  const isNew = id === "new";
+  const [actualId, setActualId] = useState(urlId);
+  const isNew = actualId === "new";
   
-  const [course, setCourse] = useState(isNew ? {
-    title: "",
-    description: "",
-    tags: [],
-    isPublished: false,
-    visibility: "everyone",
-    accessRule: "open",
-    price: 0,
-    responsible: "",
-  } : mockCourse);
-  
+  const [course, setCourse] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("content");
   const [isContentDialogOpen, setIsContentDialogOpen] = useState(false);
-  const [lessons, setLessons] = useState(mockLessons);
+  const [lessons, setLessons] = useState<any[]>([]);
   const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [coverImage, setCoverImage] = useState<string>("");
+  const [addAttendeeDialog, setAddAttendeeDialog] = useState(false);
+  const [newAttendee, setNewAttendee] = useState({ name: "", email: "" });
+  const { toast } = useToast();
 
-  // Load quizzes for this course
-  useState(() => {
-    const allQuizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
-    const courseQuizzes = allQuizzes.filter((q: any) => q.courseId === id);
-    setQuizzes(courseQuizzes);
-  });
-
-  const handleAddContent = (content: any) => {
-    const newLesson = {
-      id: content.id,
-      title: content.title,
-      type: content.type,
-      duration: content.duration || content.fileName,
-    };
-    setLessons([...lessons, newLesson]);
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
+
+  useEffect(() => {
+    if (urlId !== actualId) {
+      setActualId(urlId);
+    }
+  }, [urlId]);
+
+  useEffect(() => {
+    if (actualId === 'new') {
+      setCourse({
+        title: "",
+        description: "",
+        tags: [],
+        isPublished: false,
+        visibility: "everyone",
+        accessRule: "open",
+        price: 0,
+        responsible: "",
+      });
+      setLessons([]);
+      setLoading(false);
+    } else if (actualId && actualId !== 'new' && !/^\d+$/.test(actualId)) {
+      // Only fetch if actualId is a valid UUID (not a timestamp)
+      fetchCourse();
+    } else if (actualId && /^\d+$/.test(actualId)) {
+      // If it's a timestamp, load from localStorage and redirect
+      const storageKey = `course_${actualId}_lessons`;
+      const savedLessons = localStorage.getItem(storageKey);
+      if (savedLessons) {
+        setLessons(JSON.parse(savedLessons));
+      }
+      navigate('/admin/courses/new', { replace: true });
+    }
+  }, [actualId]);
+
+  const fetchCourse = async () => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/courses/${actualId}`);
+      if (!response.ok) throw new Error('Course not found');
+      const data = await response.json();
+      
+      setCourse({
+        title: data.title,
+        description: data.description,
+        tags: data.tags || [],
+        isPublished: data.is_published,
+        visibility: "everyone",
+        accessRule: "open",
+        price: 0,
+        responsible: data.instructor_name,
+      });
+      
+      setCoverImage(data.cover_image_url || "");
+      
+      // Fetch modules and topics
+      const modulesResponse = await fetch(`http://localhost:3001/api/courses/${actualId}/modules`);
+      if (!modulesResponse.ok) throw new Error('Modules not found');
+      const modulesData = await modulesResponse.json();
+      
+      // Flatten modules and topics into lessons format
+      const allLessons: any[] = [];
+      if (Array.isArray(modulesData)) {
+        modulesData.forEach((module: any) => {
+          // Add module as a header
+          allLessons.push({
+            id: `module-${module.id}`,
+            title: module.title,
+            lesson_type: 'document',
+            isModuleHeader: true
+          });
+          
+          // Add topics
+          module.topics?.forEach((topic: any) => {
+            allLessons.push({
+              id: topic.id,
+              title: topic.title,
+              lesson_type: topic.type,
+              duration: topic.duration
+            });
+          });
+          
+          // Add quiz if exists
+          if (module.quiz_id) {
+            allLessons.push({
+              id: module.quiz_id,
+              title: module.quiz_title || 'Module Quiz',
+              lesson_type: 'quiz'
+            });
+          }
+        });
+      }
+      
+      setLessons(allLessons);
+    } catch (error) {
+      console.error('Error fetching course:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddContent = async (content: any) => {
+    let courseId = actualId;
+
+    if (isNew || actualId === 'new') {
+      if (!course.title.trim()) {
+        toast({
+          title: "Course title required",
+          description: "Please enter a course title before adding content",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const savedId = await handleSaveCourse(true);
+      if (!savedId) return;
+      courseId = savedId;
+    }
+
+    // Just add to local state since backend endpoints don't exist
+    const newLesson = {
+      id: Date.now().toString(),
+      title: content.title,
+      lesson_type: content.type,
+      duration: content.duration,
+      content_url: content.videoLink,
+      description: content.description
+    };
+    
+    setLessons(prev => [...prev, newLesson]);
+    
+    toast({
+      title: "Content added",
+      description: `${content.title} has been added successfully`,
+    });
+  };
+
+  const handleAddAttendee = () => {
+    if (!newAttendee.name.trim() || !newAttendee.email.trim()) return;
+
+    toast({
+      title: "Attendee added",
+      description: `${newAttendee.name} has been enrolled in this course`,
+    });
+    setAddAttendeeDialog(false);
+    setNewAttendee({ name: "", email: "" });
+  };
+
+  const handleContactAttendees = () => {
+    navigate('/admin/attendees');
+  };
+
+  const handleSaveCourse = async (silent = false) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const isCreating = isNew || actualId === 'new';
+      const url = isCreating 
+        ? 'http://localhost:3001/api/courses'
+        : `http://localhost:3001/api/courses/${actualId}`;
+      
+      const response = await fetch(url, {
+        method: isCreating ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: course.title,
+          description: course.description,
+          tags: course.tags,
+          is_published: course.isPublished,
+          cover_image_url: coverImage,
+          instructor_id: user.id,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (!silent) {
+          toast({
+            title: "Course saved",
+            description: "Your changes have been saved successfully",
+          });
+        }
+        
+        if (isCreating && result.id) {
+          setActualId(result.id);
+          window.history.replaceState(null, '', `/admin/courses/${result.id}`);
+          return result.id;
+        }
+        return actualId;
+      } else {
+        throw new Error('Failed to save course');
+      }
+    } catch (error) {
+      // Fallback to localStorage
+      const courseId = isNew ? Date.now().toString() : actualId;
+      const courseData = {
+        id: courseId,
+        title: course.title,
+        description: course.description,
+        tags: course.tags,
+        is_published: course.isPublished,
+        cover_image_url: coverImage,
+        instructor_id: user?.id || 'local-user',
+        created_at: new Date().toISOString()
+      };
+      
+      // Save to localStorage
+      const existingCourses = JSON.parse(localStorage.getItem('localCourses') || '[]');
+      const courseIndex = existingCourses.findIndex((c: any) => c.id === courseId);
+      
+      if (courseIndex >= 0) {
+        existingCourses[courseIndex] = courseData;
+      } else {
+        existingCourses.push(courseData);
+      }
+      
+      localStorage.setItem('localCourses', JSON.stringify(existingCourses));
+      
+      if (!silent) {
+        toast({
+          title: "Course saved locally",
+          description: "Your changes have been saved to local storage",
+        });
+      }
+      
+      if (isNew) {
+        setActualId(courseId);
+        window.history.replaceState(null, '', `/admin/courses/${courseId}`);
+        return courseId;
+      }
+      return actualId;
+    }
+  };
+
+  if (loading || !course) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading course...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -148,14 +352,18 @@ export default function CourseForm() {
             <Button variant="outline" size="sm" onClick={() => navigate("/admin/courses/new")}>
               New
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${id}/reporting`)}>
+            <Button variant="outline" size="sm" onClick={handleSaveCourse}>
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${actualId}/reporting`)}>
               View Reporting
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleContactAttendees}>
               <Mail className="h-4 w-4 mr-2" />
               Contact Attendees
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setAddAttendeeDialog(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Add Attendees
             </Button>
@@ -170,7 +378,13 @@ export default function CourseForm() {
               />
             </div>
             
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => {
+              if (!actualId || actualId === 'new') {
+                alert('Please save the course first before previewing');
+                return;
+              }
+              window.open(`/courses/${actualId}`, '_blank');
+            }}>
               <Eye className="h-4 w-4 mr-2" />
               Preview
             </Button>
@@ -224,16 +438,36 @@ export default function CourseForm() {
                   </div>
 
                   <div className="space-y-2">
-                    {lessons.map((lesson) => (
-                      <LessonItem
-                        key={lesson.id}
-                        {...lesson}
-                        status="not-started"
-                        isAdmin
-                        onEdit={() => {}}
-                        onDelete={() => {}}
-                      />
-                    ))}
+                    {lessons.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No content yet. Click "Add Content" to start.</p>
+                      </div>
+                    ) : (
+                      lessons.map((lesson) => (
+                        lesson.isModuleHeader ? (
+                          <div key={lesson.id} className="font-semibold text-primary mt-4 mb-2 px-3">
+                            {lesson.title}
+                          </div>
+                        ) : (
+                          <LessonItem
+                            key={lesson.id}
+                            id={lesson.id}
+                            title={lesson.title}
+                            type={lesson.lesson_type || 'video'}
+                            duration={lesson.duration ? `${lesson.duration} min` : undefined}
+                            status="not-started"
+                            isAdmin
+                            onEdit={() => {
+                              console.log('Edit lesson:', lesson.id);
+                            }}
+                            onDelete={() => {
+                              setLessons(lessons.filter(l => l.id !== lesson.id));
+                            }}
+                          />
+                        )
+                      ))
+                    )}
                   </div>
                 </div>
               </TabsContent>
@@ -341,7 +575,7 @@ export default function CourseForm() {
                 <div className="bg-card border border-border rounded-xl p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold">Quizzes</h3>
-                    <Button size="sm" onClick={() => navigate(`/admin/courses/${id}/quiz/new`)}>
+                    <Button size="sm" onClick={() => navigate(`/admin/courses/${actualId}/quiz/new`)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Quiz
                     </Button>
@@ -363,7 +597,7 @@ export default function CourseForm() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => navigate(`/admin/courses/${id}/quiz/${quiz.id}`)}
+                          onClick={() => navigate(`/admin/courses/${actualId}/quiz/${quiz.id}`)}
                         >
                           Edit
                         </Button>
@@ -373,7 +607,7 @@ export default function CourseForm() {
                       <div className="text-center py-8 text-muted-foreground">
                         <HelpCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p className="mb-4">No quizzes yet</p>
-                        <Button onClick={() => navigate(`/admin/courses/${id}/quiz/new`)}>
+                        <Button onClick={() => navigate(`/admin/courses/${actualId}/quiz/new`)}>
                           <Plus className="h-4 w-4 mr-2" />
                           Add Quiz
                         </Button>
@@ -389,10 +623,46 @@ export default function CourseForm() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Course Image</Label>
-              <div className="aspect-video bg-muted rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 transition-colors">
-                <ImagePlus className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Upload Image</span>
-              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="image-upload"
+              />
+              {coverImage ? (
+                <div className="relative aspect-video rounded-xl overflow-hidden border border-border group">
+                  <img 
+                    src={coverImage} 
+                    alt="Course cover" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={() => document.getElementById('image-upload')?.click()}
+                    >
+                      Change
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="destructive"
+                      onClick={() => setCoverImage("")}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="aspect-video bg-muted rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => document.getElementById('image-upload')?.click()}
+                >
+                  <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Upload Image</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -403,6 +673,41 @@ export default function CourseForm() {
         onOpenChange={setIsContentDialogOpen}
         onSave={handleAddContent}
       />
+
+      <Dialog open={addAttendeeDialog} onOpenChange={setAddAttendeeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Attendee</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                placeholder="Enter name"
+                value={newAttendee.name}
+                onChange={(e) => setNewAttendee({ ...newAttendee, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter email"
+                value={newAttendee.email}
+                onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddAttendeeDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddAttendee}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

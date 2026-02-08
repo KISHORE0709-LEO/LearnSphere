@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,71 +29,25 @@ import {
   Download
 } from "lucide-react";
 
-// Mock data
-const overviewStats = [
-  { label: "Total Participants", value: 234, icon: Users, color: "text-primary" },
-  { label: "Yet to Start", value: 45, icon: Clock, color: "text-warning" },
-  { label: "In Progress", value: 128, icon: PlayCircle, color: "text-secondary" },
-  { label: "Completed", value: 61, icon: CheckCircle2, color: "text-success" },
-];
+interface ReportData {
+  id: string;
+  course_name: string;
+  participant_name: string;
+  enrollment_date: string;
+  start_date: string | null;
+  hours_spent: number;
+  minutes_spent: number;
+  completion: number;
+  completion_date: string | null;
+  status: string;
+}
 
-const mockReportData = [
-  {
-    id: 1,
-    courseName: "Advanced React Patterns",
-    participantName: "John Doe",
-    enrolledDate: "2024-01-15",
-    startDate: "2024-01-16",
-    timeSpent: "4h 32m",
-    completion: 75,
-    completedDate: null,
-    status: "in-progress",
-  },
-  {
-    id: 2,
-    courseName: "Python for Data Science",
-    participantName: "Jane Smith",
-    enrolledDate: "2024-01-10",
-    startDate: "2024-01-10",
-    timeSpent: "12h 15m",
-    completion: 100,
-    completedDate: "2024-01-25",
-    status: "completed",
-  },
-  {
-    id: 3,
-    courseName: "UI/UX Design",
-    participantName: "Mike Johnson",
-    enrolledDate: "2024-01-20",
-    startDate: null,
-    timeSpent: "0h",
-    completion: 0,
-    completedDate: null,
-    status: "yet-to-start",
-  },
-  {
-    id: 4,
-    courseName: "AWS Cloud Architecture",
-    participantName: "Sarah Williams",
-    enrolledDate: "2024-01-18",
-    startDate: "2024-01-19",
-    timeSpent: "8h 45m",
-    completion: 60,
-    completedDate: null,
-    status: "in-progress",
-  },
-  {
-    id: 5,
-    courseName: "DevOps Essentials",
-    participantName: "Chris Brown",
-    enrolledDate: "2024-01-05",
-    startDate: "2024-01-06",
-    timeSpent: "15h 20m",
-    completion: 100,
-    completedDate: "2024-01-22",
-    status: "completed",
-  },
-];
+interface OverviewStats {
+  total: number;
+  yetToStart: number;
+  inProgress: number;
+  completed: number;
+}
 
 const allColumns = [
   { id: "srNo", label: "Sr No.", default: true },
@@ -113,11 +67,94 @@ export default function AdminReporting() {
   const [visibleColumns, setVisibleColumns] = useState(
     allColumns.filter(c => c.default).map(c => c.id)
   );
+  const [reportData, setReportData] = useState<ReportData[]>([]);
+  const [overviewStats, setOverviewStats] = useState<OverviewStats>({
+    total: 0,
+    yetToStart: 0,
+    inProgress: 0,
+    completed: 0
+  });
+  const [loading, setLoading] = useState(true);
 
-  const filteredData = mockReportData.filter(row => {
+  useEffect(() => {
+    fetchReportingData();
+  }, []);
+
+  const fetchReportingData = async () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        console.error('No user found in localStorage');
+        setLoading(false);
+        return;
+      }
+      
+      const user = JSON.parse(userStr);
+      if (!user.id) {
+        console.error('User ID not found');
+        setLoading(false);
+        return;
+      }
+      
+      const isAdmin = user.role === 'admin';
+      const instructorId = user.id;
+
+      const response = await fetch(
+        `http://localhost:3001/api/admin/reporting?instructorId=${instructorId}&isAdmin=${isAdmin}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reporting data');
+      }
+      
+      const data = await response.json();
+
+      setReportData(Array.isArray(data.data) ? data.data : []);
+      setOverviewStats({
+        total: data.overview?.total || 0,
+        yetToStart: data.overview?.yetToStart || 0,
+        inProgress: data.overview?.inProgress || 0,
+        completed: data.overview?.completed || 0
+      });
+    } catch (error) {
+      console.error('Error fetching reporting data:', error);
+      setReportData([]);
+      setOverviewStats({
+        total: 0,
+        yetToStart: 0,
+        inProgress: 0,
+        completed: 0
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const formatTimeSpent = (hours: number, minutes: number) => {
+    if (hours === 0 && minutes === 0) return '0h';
+    return `${hours}h ${minutes}m`;
+  };
+
+  const overviewStatsConfig = [
+    { label: "Total Participants", value: overviewStats.total, icon: Users, color: "text-primary" },
+    { label: "Yet to Start", value: overviewStats.yetToStart, icon: Clock, color: "text-warning" },
+    { label: "In Progress", value: overviewStats.inProgress, icon: PlayCircle, color: "text-secondary" },
+    { label: "Completed", value: overviewStats.completed, icon: CheckCircle2, color: "text-success" },
+  ];
+
+  const filteredData = reportData.filter(row => {
     const matchesSearch = 
-      row.courseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      row.participantName.toLowerCase().includes(searchQuery.toLowerCase());
+      row.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      row.participant_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = !activeFilter || row.status === activeFilter;
     return matchesSearch && matchesFilter;
   });
@@ -134,6 +171,14 @@ export default function AdminReporting() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-6 lg:p-8 flex items-center justify-center">
+        <div className="text-muted-foreground">Loading reporting data...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -156,7 +201,7 @@ export default function AdminReporting() {
 
       {/* Overview Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {overviewStats.map((stat, index) => (
+        {overviewStatsConfig.map((stat, index) => (
           <motion.button
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
@@ -264,11 +309,11 @@ export default function AdminReporting() {
             {filteredData.map((row, index) => (
               <TableRow key={row.id}>
                 {visibleColumns.includes("srNo") && <TableCell>{index + 1}</TableCell>}
-                {visibleColumns.includes("courseName") && <TableCell className="font-medium">{row.courseName}</TableCell>}
-                {visibleColumns.includes("participantName") && <TableCell>{row.participantName}</TableCell>}
-                {visibleColumns.includes("enrolledDate") && <TableCell>{row.enrolledDate}</TableCell>}
-                {visibleColumns.includes("startDate") && <TableCell>{row.startDate || "-"}</TableCell>}
-                {visibleColumns.includes("timeSpent") && <TableCell>{row.timeSpent}</TableCell>}
+                {visibleColumns.includes("courseName") && <TableCell className="font-medium">{row.course_name}</TableCell>}
+                {visibleColumns.includes("participantName") && <TableCell>{row.participant_name}</TableCell>}
+                {visibleColumns.includes("enrolledDate") && <TableCell>{formatDate(row.enrollment_date)}</TableCell>}
+                {visibleColumns.includes("startDate") && <TableCell>{formatDate(row.start_date)}</TableCell>}
+                {visibleColumns.includes("timeSpent") && <TableCell>{formatTimeSpent(row.hours_spent, row.minutes_spent)}</TableCell>}
                 {visibleColumns.includes("completion") && (
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -278,11 +323,11 @@ export default function AdminReporting() {
                           style={{ width: `${row.completion}%` }}
                         />
                       </div>
-                      <span className="text-xs">{row.completion}%</span>
+                      <span className="text-xs">{Math.round(row.completion)}%</span>
                     </div>
                   </TableCell>
                 )}
-                {visibleColumns.includes("completedDate") && <TableCell>{row.completedDate || "-"}</TableCell>}
+                {visibleColumns.includes("completedDate") && <TableCell>{formatDate(row.completion_date)}</TableCell>}
                 {visibleColumns.includes("status") && <TableCell>{getStatusBadge(row.status)}</TableCell>}
               </TableRow>
             ))}

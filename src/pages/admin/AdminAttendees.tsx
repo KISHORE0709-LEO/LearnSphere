@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, UserPlus, Mail, MoreVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,39 +29,58 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminAttendees() {
-  const [attendees, setAttendees] = useState([
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      role: "learner",
-      courses: 3,
-      points: 450,
-      joinedAt: "2024-01-15",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      role: "learner",
-      courses: 5,
-      points: 780,
-      joinedAt: "2024-02-20",
-    },
-    {
-      id: "3",
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      role: "learner",
-      courses: 2,
-      points: 320,
-      joinedAt: "2024-03-10",
-    },
-  ]);
+  const [attendees, setAttendees] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newAttendee, setNewAttendee] = useState({ name: "", email: "" });
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchAttendees();
+  }, []);
+
+  const fetchAttendees = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/users/learners');
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      setAttendees(data);
+    } catch (error) {
+      console.error('Error fetching attendees:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendEmail = (email: string, name: string) => {
+    const subject = encodeURIComponent('Message from LearnSphere');
+    const body = encodeURIComponent(`Hello ${name},\n\n`);
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}&body=${body}`, '_blank');
+    toast({
+      title: "Opening Gmail",
+      description: `Composing email to ${name}`,
+    });
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to remove ${name}?`)) return;
+    
+    try {
+      // TODO: Add backend endpoint to delete user
+      setAttendees(attendees.filter((a) => a.id !== id));
+      toast({
+        title: "Attendee removed",
+        description: `${name} has been removed`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove attendee",
+        variant: "destructive",
+      });
+    }
+  };
 
   const filteredAttendees = attendees.filter(
     (attendee) =>
@@ -79,7 +98,7 @@ export default function AdminAttendees() {
       role: "learner",
       courses: 0,
       points: 0,
-      joinedAt: new Date().toISOString().split("T")[0],
+      joinedat: new Date().toISOString(),
     };
 
     setAttendees([...attendees, attendee]);
@@ -91,14 +110,6 @@ export default function AdminAttendees() {
     });
   };
 
-  const handleDelete = (id: string, name: string) => {
-    setAttendees(attendees.filter((a) => a.id !== id));
-    toast({
-      title: "Attendee removed",
-      description: `${name} has been removed`,
-    });
-  };
-
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -107,6 +118,16 @@ export default function AdminAttendees() {
       .toUpperCase()
       .slice(0, 2);
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading attendees...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -164,7 +185,7 @@ export default function AdminAttendees() {
                   <span className="text-warning font-medium">{attendee.points} pts</span>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(attendee.joinedAt).toLocaleDateString()}
+                  {new Date(attendee.joinedat).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -174,7 +195,7 @@ export default function AdminAttendees() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleSendEmail(attendee.email, attendee.name)}>
                         <Mail className="h-4 w-4 mr-2" />
                         Send Email
                       </DropdownMenuItem>

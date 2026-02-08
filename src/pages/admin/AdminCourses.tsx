@@ -6,19 +6,10 @@ import { Button } from "@/components/ui/button";
 import { AdminCourseCard } from "@/components/courses/AdminCourseCard";
 import { 
   Search, 
-  Plus, 
   Grid3X3, 
   List as ListIcon,
   LayoutGrid
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 
 // Mock data
 const mockAdminCourses = [
@@ -69,8 +60,6 @@ type ViewMode = "grid" | "list" | "kanban";
 export default function AdminCourses() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newCourseName, setNewCourseName] = useState("");
   const navigate = useNavigate();
 
   const filteredCourses = mockAdminCourses.filter(course =>
@@ -79,15 +68,6 @@ export default function AdminCourses() {
 
   const publishedCourses = filteredCourses.filter(c => c.isPublished);
   const draftCourses = filteredCourses.filter(c => !c.isPublished);
-
-  const handleCreateCourse = () => {
-    if (newCourseName.trim()) {
-      // In real app, create course via API
-      setIsCreateOpen(false);
-      setNewCourseName("");
-      navigate("/admin/courses/new");
-    }
-  };
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -101,40 +81,6 @@ export default function AdminCourses() {
           <h1 className="text-2xl font-bold">Courses</h1>
           <p className="text-muted-foreground">Manage your course catalog</p>
         </div>
-
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button variant="glow">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Course
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Course</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="courseName">Course Name</Label>
-                <Input
-                  id="courseName"
-                  placeholder="Enter course name..."
-                  value={newCourseName}
-                  onChange={(e) => setNewCourseName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateCourse()}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateCourse} disabled={!newCourseName.trim()}>
-                  Create
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </motion.div>
 
       {/* Search & View Toggle */}

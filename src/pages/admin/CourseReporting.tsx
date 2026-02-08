@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { Users, Clock, CheckCircle, PlayCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Users, Clock, CheckCircle, PlayCircle, UserPlus, Mail, MoreVertical } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -13,45 +15,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
-const mockParticipants = [
-  {
-    id: 1,
-    courseName: "Basics of Odoo CRM",
-    participantName: "Salman Khan",
-    enrolledDate: "Feb 14",
-    startDate: "Feb 16",
-    timeSpent: "2:20",
-    completionPercentage: 30,
-    completedDate: "Feb 21",
-    status: "In progress",
-  },
-  {
-    id: 2,
-    courseName: "Basics of Odoo CRM",
-    participantName: "John Doe",
-    enrolledDate: "Feb 10",
-    startDate: "Feb 12",
-    timeSpent: "5:45",
-    completionPercentage: 100,
-    completedDate: "Feb 20",
-    status: "Completed",
-  },
-  {
-    id: 3,
-    courseName: "Basics of Odoo CRM",
-    participantName: "Jane Smith",
-    enrolledDate: "Feb 15",
-    startDate: "Feb 17",
-    timeSpent: "3:10",
-    completionPercentage: 45,
-    completedDate: "",
-    status: "In progress",
-  },
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CourseReporting() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedColumns, setSelectedColumns] = useState({
     sno: true,
     courseName: true,
@@ -64,65 +47,128 @@ export default function CourseReporting() {
     status: true,
   });
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newAttendee, setNewAttendee] = useState({ name: "", email: "" });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchCourseReporting();
+  }, [id]);
+
+  const fetchCourseReporting = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const response = await fetch(
+        `http://localhost:3001/api/admin/reporting?instructorId=${user.id}&isAdmin=${user.role === 'admin'}`
+      );
+      const data = await response.json();
+      
+      const courseData = data.data.filter((item: any) => item.course_id === id);
+      setParticipants(courseData);
+    } catch (error) {
+      console.error('Error fetching course reporting:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = {
-    total: mockParticipants.length,
-    yetToStart: mockParticipants.filter(p => p.status === "Yet to start").length,
-    inProgress: mockParticipants.filter(p => p.status === "In progress").length,
-    completed: mockParticipants.filter(p => p.status === "Completed").length,
+    total: participants.length,
+    yetToStart: participants.filter(p => p.status === 'yet-to-start').length,
+    inProgress: participants.filter(p => p.status === 'in-progress').length,
+    completed: participants.filter(p => p.status === 'completed').length,
   };
 
   const filteredParticipants = filterStatus
-    ? mockParticipants.filter(p => p.status === filterStatus)
-    : mockParticipants;
+    ? participants.filter(p => p.status === filterStatus)
+    : participants;
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const formatTime = (hours: number, minutes: number) => {
+    if (hours === 0 && minutes === 0) return '0h';
+    return `${hours}h ${minutes}m`;
+  };
+
+  const handleAddAttendee = () => {
+    if (!newAttendee.name.trim() || !newAttendee.email.trim()) return;
+
+    toast({
+      title: "Attendee added",
+      description: `${newAttendee.name} has been enrolled in this course`,
+    });
+    setAddDialogOpen(false);
+    setNewAttendee({ name: "", email: "" });
+    fetchCourseReporting();
+  };
+
+  const handleContactAttendee = (email: string, name: string) => {
+    navigate('/admin/attendees');
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading reporting data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Course Reporting</h1>
-        <p className="text-muted-foreground">Track learner progress and completion</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Course Reporting</h1>
+          <p className="text-muted-foreground">Track learner progress and completion</p>
+        </div>
+        <Button onClick={() => setAddDialogOpen(true)}>
+          <UserPlus className="h-4 w-4 mr-2" />
+          Add Attendee
+        </Button>
       </div>
 
       <div className="grid lg:grid-cols-[280px_1fr] gap-6 items-start">
-        {/* Left Sidebar - Column Selector */}
         <div className="lg:pt-[52px]">
           <Card className="glass border-border h-fit">
-          <CardHeader>
-            <CardTitle className="text-base">Customizable Table</CardTitle>
-            <p className="text-xs text-muted-foreground">Pick which columns to show/hide</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Object.entries({
-              sno: "S.No.",
-              courseName: "Course Name",
-              participantName: "Participant name",
-              enrolledDate: "Enrolled Date",
-              startDate: "Start date",
-              timeSpent: "Time spent",
-              completionPercentage: "Completion percentage",
-              completedDate: "Completed date",
-              status: "Status",
-            }).map(([key, label]) => (
-              <div key={key} className="flex items-center space-x-2">
-                <Checkbox
-                  id={key}
-                  checked={selectedColumns[key as keyof typeof selectedColumns]}
-                  onCheckedChange={(checked) =>
-                    setSelectedColumns({ ...selectedColumns, [key]: checked })
-                  }
-                />
-                <Label htmlFor={key} className="text-sm cursor-pointer">
-                  {label}
-                </Label>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+            <CardHeader>
+              <CardTitle className="text-base">Customizable Table</CardTitle>
+              <p className="text-xs text-muted-foreground">Pick which columns to show/hide</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Object.entries({
+                sno: "S.No.",
+                courseName: "Course Name",
+                participantName: "Participant name",
+                enrolledDate: "Enrolled Date",
+                startDate: "Start date",
+                timeSpent: "Time spent",
+                completionPercentage: "Completion percentage",
+                completedDate: "Completed date",
+                status: "Status",
+              }).map(([key, label]) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={key}
+                    checked={selectedColumns[key as keyof typeof selectedColumns]}
+                    onCheckedChange={(checked) =>
+                      setSelectedColumns({ ...selectedColumns, [key]: checked })
+                    }
+                  />
+                  <Label htmlFor={key} className="text-sm cursor-pointer">
+                    {label}
+                  </Label>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Main Content */}
         <div className="space-y-8">
-          {/* Overview Cards */}
           <div className="mb-8">
             <h2 className="text-lg font-semibold mb-6">Overview</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -143,7 +189,7 @@ export default function CourseReporting() {
 
               <Card
                 className="glass border-border cursor-pointer hover:border-primary/50 transition-all"
-                onClick={() => setFilterStatus("Yet to start")}
+                onClick={() => setFilterStatus('yet-to-start')}
               >
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
@@ -158,7 +204,7 @@ export default function CourseReporting() {
 
               <Card
                 className="glass border-border cursor-pointer hover:border-primary/50 transition-all"
-                onClick={() => setFilterStatus("In progress")}
+                onClick={() => setFilterStatus('in-progress')}
               >
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
@@ -173,7 +219,7 @@ export default function CourseReporting() {
 
               <Card
                 className="glass border-border cursor-pointer hover:border-primary/50 transition-all"
-                onClick={() => setFilterStatus("Completed")}
+                onClick={() => setFilterStatus('completed')}
               >
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
@@ -188,7 +234,6 @@ export default function CourseReporting() {
             </div>
           </div>
 
-          {/* Users Table */}
           <Card className="glass border-border">
             <CardHeader>
               <CardTitle className="text-base">Users</CardTitle>
@@ -207,53 +252,44 @@ export default function CourseReporting() {
                       {selectedColumns.completionPercentage && <TableHead>Completion %</TableHead>}
                       {selectedColumns.completedDate && <TableHead>Completed date</TableHead>}
                       {selectedColumns.status && <TableHead>Status</TableHead>}
+                      <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredParticipants.map((participant) => (
+                    {filteredParticipants.map((participant, index) => (
                       <TableRow key={participant.id}>
-                        {selectedColumns.sno && <TableCell>{participant.id}</TableCell>}
-                        {selectedColumns.courseName && (
-                          <TableCell className="text-primary">{participant.courseName}</TableCell>
-                        )}
-                        {selectedColumns.participantName && (
-                          <TableCell>{participant.participantName}</TableCell>
-                        )}
-                        {selectedColumns.enrolledDate && (
-                          <TableCell>{participant.enrolledDate}</TableCell>
-                        )}
-                        {selectedColumns.startDate && <TableCell>{participant.startDate}</TableCell>}
-                        {selectedColumns.timeSpent && (
-                          <TableCell className="text-warning">{participant.timeSpent}</TableCell>
-                        )}
-                        {selectedColumns.completionPercentage && (
-                          <TableCell>{participant.completionPercentage}%</TableCell>
-                        )}
-                        {selectedColumns.completedDate && (
-                          <TableCell>{participant.completedDate || "-"}</TableCell>
-                        )}
+                        {selectedColumns.sno && <TableCell>{index + 1}</TableCell>}
+                        {selectedColumns.courseName && <TableCell>{participant.course_name}</TableCell>}
+                        {selectedColumns.participantName && <TableCell>{participant.participant_name}</TableCell>}
+                        {selectedColumns.enrolledDate && <TableCell>{formatDate(participant.enrolled_date)}</TableCell>}
+                        {selectedColumns.startDate && <TableCell>{formatDate(participant.start_date)}</TableCell>}
+                        {selectedColumns.timeSpent && <TableCell>{formatTime(participant.time_spent_hours, participant.time_spent_minutes)}</TableCell>}
+                        {selectedColumns.completionPercentage && <TableCell>{participant.completion_percentage}%</TableCell>}
+                        {selectedColumns.completedDate && <TableCell>{formatDate(participant.completed_date)}</TableCell>}
                         {selectedColumns.status && (
                           <TableCell>
                             <Badge
-                              variant={
-                                participant.status === "Completed"
-                                  ? "default"
-                                  : participant.status === "In progress"
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                              className={
-                                participant.status === "Completed"
-                                  ? "bg-success"
-                                  : participant.status === "In progress"
-                                  ? "bg-primary/20 text-primary"
-                                  : ""
-                              }
+                              variant={participant.status === 'completed' ? 'default' : participant.status === 'in-progress' ? 'secondary' : 'outline'}
                             >
                               {participant.status}
                             </Badge>
                           </TableCell>
                         )}
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleContactAttendee(participant.participant_email, participant.participant_name)}>
+                                <Mail className="h-4 w-4 mr-2" />
+                                Contact Attendee
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -263,6 +299,41 @@ export default function CourseReporting() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Attendee</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                placeholder="Enter name"
+                value={newAttendee.name}
+                onChange={(e) => setNewAttendee({ ...newAttendee, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter email"
+                value={newAttendee.email}
+                onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddAttendee}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

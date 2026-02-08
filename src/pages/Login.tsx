@@ -35,6 +35,7 @@ export default function Login() {
         return;
       }
 
+      localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("currentUser", JSON.stringify(data.user));
       toast({
         title: "Success",

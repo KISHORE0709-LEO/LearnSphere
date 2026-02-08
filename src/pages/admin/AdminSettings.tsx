@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Save, Globe, Bell, Shield, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,12 +23,43 @@ export default function AdminSettings() {
   });
   const { toast } = useToast();
 
-  const handleSave = () => {
-    localStorage.setItem("platformSettings", JSON.stringify(settings));
-    toast({
-      title: "Settings saved",
-      description: "Your changes have been saved successfully",
-    });
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        if (data) setSettings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Settings saved",
+          description: "Your changes have been saved successfully",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

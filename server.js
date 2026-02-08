@@ -7,7 +7,8 @@ const app = express();
 const PORT = 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Register
 app.post('/api/auth/register', async (req, res) => {
@@ -99,6 +100,78 @@ app.get('/api/courses/:id', async (req, res) => {
 
     res.json({ ...course.rows[0], lessons: lessons.rows });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update course
+app.put('/api/courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, tags, is_published, cover_image_url } = req.body;
+
+    await db.query(
+      `UPDATE courses SET title = $1, description = $2, is_published = $3, cover_image_url = $4, updated_at = NOW() WHERE id = $5`,
+      [title, description, is_published, cover_image_url, id]
+    );
+
+    // Update tags if provided
+    if (tags && Array.isArray(tags)) {
+      await db.query('DELETE FROM course_tags WHERE course_id = $1', [id]);
+      
+      for (const tagName of tags) {
+        if (tagName.trim()) {
+          const tagResult = await db.query(
+            'INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = $1 RETURNING id',
+            [tagName.trim()]
+          );
+          await db.query(
+            'INSERT INTO course_tags (course_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [id, tagResult.rows[0].id]
+          );
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating course:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create new course
+app.post('/api/courses', async (req, res) => {
+  try {
+    const { title, description, tags, is_published, cover_image_url, instructor_id } = req.body;
+
+    const result = await db.query(
+      `INSERT INTO courses (title, description, is_published, cover_image_url, instructor_id, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id`,
+      [title, description, is_published || false, cover_image_url, instructor_id]
+    );
+
+    const courseId = result.rows[0].id;
+
+    // Add tags if provided
+    if (tags && Array.isArray(tags)) {
+      for (const tagName of tags) {
+        if (tagName.trim()) {
+          const tagResult = await db.query(
+            'INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = $1 RETURNING id',
+            [tagName.trim()]
+          );
+          await db.query(
+            'INSERT INTO course_tags (course_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [courseId, tagResult.rows[0].id]
+          );
+        }
+      }
+    }
+
+    res.json({ id: courseId, success: true });
+  } catch (error) {
+    console.error('Error creating course:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -781,6 +854,337 @@ app.get('/api/users/:userId/badge-progress', async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all learners with stats
+app.get('/api/users/learners', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.role,
+        COALESCE(u.total_points, 0) as points,
+        u.created_at as joinedat,
+        COALESCE(COUNT(DISTINCT e.course_id), 0)::int as courses
+      FROM users u
+      LEFT JOIN enrollments e ON u.id = e.user_id
+      WHERE u.role = 'learner'
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Learners fetch error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get user by ID
+app.get('/api/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await db.query(
+      'SELECT id, email, name, role, total_points, badge_level, avatar_url, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update user profile
+app.put('/api/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { avatar_url } = req.body;
+    
+    const result = await db.query(
+      'UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING id, email, name, role, total_points, badge_level, avatar_url, created_at',
+      [avatar_url, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get instructor dashboard stats
+app.get('/api/admin/dashboard-stats', async (req, res) => {
+  try {
+    const instructorId = req.query.instructorId;
+    const isAdmin = req.query.isAdmin === 'true';
+    
+    // Total courses
+    const coursesQuery = isAdmin 
+      ? 'SELECT COUNT(*) as total FROM courses'
+      : 'SELECT COUNT(*) as total FROM courses WHERE instructor_id = $1';
+    const coursesResult = await db.query(coursesQuery, isAdmin ? [] : [instructorId]);
+    
+    // Courses this month
+    const coursesMonthQuery = isAdmin
+      ? "SELECT COUNT(*) as total FROM courses WHERE created_at >= date_trunc('month', CURRENT_DATE)"
+      : "SELECT COUNT(*) as total FROM courses WHERE instructor_id = $1 AND created_at >= date_trunc('month', CURRENT_DATE)";
+    const coursesMonthResult = await db.query(coursesMonthQuery, isAdmin ? [] : [instructorId]);
+    
+    // Total learners
+    const learnersQuery = isAdmin
+      ? 'SELECT COUNT(DISTINCT user_id) as total FROM enrollments'
+      : 'SELECT COUNT(DISTINCT e.user_id) as total FROM enrollments e JOIN courses c ON e.course_id = c.id WHERE c.instructor_id = $1';
+    const learnersResult = await db.query(learnersQuery, isAdmin ? [] : [instructorId]);
+    
+    // Learners this week
+    const learnersWeekQuery = isAdmin
+      ? "SELECT COUNT(DISTINCT user_id) as total FROM enrollments WHERE enrollment_date >= date_trunc('week', CURRENT_DATE)"
+      : "SELECT COUNT(DISTINCT e.user_id) as total FROM enrollments e JOIN courses c ON e.course_id = c.id WHERE c.instructor_id = $1 AND e.enrollment_date >= date_trunc('week', CURRENT_DATE)";
+    const learnersWeekResult = await db.query(learnersWeekQuery, isAdmin ? [] : [instructorId]);
+    
+    // Completion rate
+    const completionQuery = isAdmin
+      ? 'SELECT COALESCE(ROUND(AVG(CASE WHEN is_completed THEN 100 ELSE 0 END)), 0) as rate FROM enrollments'
+      : 'SELECT COALESCE(ROUND(AVG(CASE WHEN e.is_completed THEN 100 ELSE 0 END)), 0) as rate FROM enrollments e JOIN courses c ON e.course_id = c.id WHERE c.instructor_id = $1';
+    const completionResult = await db.query(completionQuery, isAdmin ? [] : [instructorId]);
+    
+    // Completion rate last month
+    const completionLastMonthQuery = isAdmin
+      ? "SELECT COALESCE(ROUND(AVG(CASE WHEN is_completed THEN 100 ELSE 0 END)), 0) as rate FROM enrollments WHERE enrollment_date < date_trunc('month', CURRENT_DATE) AND enrollment_date >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month')"
+      : "SELECT COALESCE(ROUND(AVG(CASE WHEN e.is_completed THEN 100 ELSE 0 END)), 0) as rate FROM enrollments e JOIN courses c ON e.course_id = c.id WHERE c.instructor_id = $1 AND e.enrollment_date < date_trunc('month', CURRENT_DATE) AND e.enrollment_date >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month')";
+    const completionLastMonthResult = await db.query(completionLastMonthQuery, isAdmin ? [] : [instructorId]);
+    
+    // Average time spent
+    const timeQuery = isAdmin
+      ? 'SELECT COALESCE(ROUND(AVG(time_spent) / 3600, 1), 0) as avg_hours FROM lesson_progress WHERE time_spent > 0'
+      : 'SELECT COALESCE(ROUND(AVG(lp.time_spent) / 3600, 1), 0) as avg_hours FROM lesson_progress lp JOIN enrollments e ON lp.enrollment_id = e.id JOIN courses c ON e.course_id = c.id WHERE c.instructor_id = $1 AND lp.time_spent > 0';
+    const timeResult = await db.query(timeQuery, isAdmin ? [] : [instructorId]);
+    
+    res.json({
+      totalCourses: parseInt(coursesResult.rows[0].total),
+      coursesThisMonth: parseInt(coursesMonthResult.rows[0].total),
+      totalLearners: parseInt(learnersResult.rows[0].total),
+      learnersThisWeek: parseInt(learnersWeekResult.rows[0].total),
+      completionRate: parseInt(completionResult.rows[0].rate),
+      completionRateChange: parseInt(completionResult.rows[0].rate) - parseInt(completionLastMonthResult.rows[0].rate),
+      avgTimeSpent: parseFloat(timeResult.rows[0].avg_hours)
+    });
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get recent activity
+app.get('/api/admin/recent-activity', async (req, res) => {
+  try {
+    const instructorId = req.query.instructorId;
+    const isAdmin = req.query.isAdmin === 'true';
+    
+    const query = isAdmin
+      ? `SELECT * FROM (
+          SELECT 
+            e.enrollment_date as timestamp,
+            'enrolled' as type,
+            u.name as user_name,
+            c.title as course_title
+          FROM enrollments e
+          JOIN users u ON e.user_id = u.id
+          JOIN courses c ON e.course_id = c.id
+          WHERE e.enrollment_date IS NOT NULL
+          UNION ALL
+          SELECT 
+            e.completion_date as timestamp,
+            'completed' as type,
+            u.name as user_name,
+            c.title as course_title
+          FROM enrollments e
+          JOIN users u ON e.user_id = u.id
+          JOIN courses c ON e.course_id = c.id
+          WHERE e.is_completed = true AND e.completion_date IS NOT NULL
+          UNION ALL
+          SELECT 
+            lp.started_at as timestamp,
+            'started' as type,
+            u.name as user_name,
+            c.title as course_title
+          FROM lesson_progress lp
+          JOIN enrollments e ON lp.enrollment_id = e.id
+          JOIN users u ON e.user_id = u.id
+          JOIN lessons l ON lp.lesson_id = l.id
+          JOIN courses c ON l.course_id = c.id
+          WHERE lp.started_at IS NOT NULL
+        ) activities
+        ORDER BY timestamp DESC
+        LIMIT 10`
+      : `SELECT * FROM (
+          SELECT 
+            e.enrollment_date as timestamp,
+            'enrolled' as type,
+            u.name as user_name,
+            c.title as course_title
+          FROM enrollments e
+          JOIN users u ON e.user_id = u.id
+          JOIN courses c ON e.course_id = c.id
+          WHERE c.instructor_id = $1 AND e.enrollment_date IS NOT NULL
+          UNION ALL
+          SELECT 
+            e.completion_date as timestamp,
+            'completed' as type,
+            u.name as user_name,
+            c.title as course_title
+          FROM enrollments e
+          JOIN users u ON e.user_id = u.id
+          JOIN courses c ON e.course_id = c.id
+          WHERE c.instructor_id = $1 AND e.is_completed = true AND e.completion_date IS NOT NULL
+          UNION ALL
+          SELECT 
+            lp.started_at as timestamp,
+            'started' as type,
+            u.name as user_name,
+            c.title as course_title
+          FROM lesson_progress lp
+          JOIN enrollments e ON lp.enrollment_id = e.id
+          JOIN users u ON e.user_id = u.id
+          JOIN lessons l ON lp.lesson_id = l.id
+          JOIN courses c ON l.course_id = c.id
+          WHERE c.instructor_id = $1 AND lp.started_at IS NOT NULL
+        ) activities
+        ORDER BY timestamp DESC
+        LIMIT 10`;
+    
+    const result = await db.query(query, isAdmin ? [] : [instructorId]);
+    res.json(result.rows || []);
+  } catch (error) {
+    console.error('Recent activity error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get reporting data
+app.get('/api/admin/reporting', async (req, res) => {
+  try {
+    const instructorId = req.query.instructorId;
+    const isAdmin = req.query.isAdmin === 'true';
+    
+    const query = isAdmin
+      ? `SELECT 
+          e.id,
+          e.course_id,
+          c.title as course_name,
+          u.name as participant_name,
+          u.email as participant_email,
+          e.enrollment_date as enrolled_date,
+          e.last_accessed as start_date,
+          COALESCE(ROUND(SUM(lp.time_spent) / 3600, 0), 0) as time_spent_hours,
+          COALESCE(ROUND(SUM(lp.time_spent) % 3600 / 60, 0), 0) as time_spent_minutes,
+          COALESCE(e.progress_percentage, 0) as completion_percentage,
+          e.completion_date as completed_date,
+          CASE 
+            WHEN e.is_completed THEN 'completed'
+            WHEN e.last_accessed IS NOT NULL THEN 'in-progress'
+            ELSE 'yet-to-start'
+          END as status
+        FROM enrollments e
+        JOIN users u ON e.user_id = u.id
+        JOIN courses c ON e.course_id = c.id
+        LEFT JOIN lesson_progress lp ON lp.enrollment_id = e.id
+        GROUP BY e.id, e.course_id, c.title, u.name, u.email, e.enrollment_date, e.last_accessed, e.progress_percentage, e.completion_date, e.is_completed
+        ORDER BY e.enrollment_date DESC`
+      : `SELECT 
+          e.id,
+          e.course_id,
+          c.title as course_name,
+          u.name as participant_name,
+          u.email as participant_email,
+          e.enrollment_date as enrolled_date,
+          e.last_accessed as start_date,
+          COALESCE(ROUND(SUM(lp.time_spent) / 3600, 0), 0) as time_spent_hours,
+          COALESCE(ROUND(SUM(lp.time_spent) % 3600 / 60, 0), 0) as time_spent_minutes,
+          COALESCE(e.progress_percentage, 0) as completion_percentage,
+          e.completion_date as completed_date,
+          CASE 
+            WHEN e.is_completed THEN 'completed'
+            WHEN e.last_accessed IS NOT NULL THEN 'in-progress'
+            ELSE 'yet-to-start'
+          END as status
+        FROM enrollments e
+        JOIN users u ON e.user_id = u.id
+        JOIN courses c ON e.course_id = c.id
+        LEFT JOIN lesson_progress lp ON lp.enrollment_id = e.id
+        WHERE c.instructor_id = $1
+        GROUP BY e.id, e.course_id, c.title, u.name, u.email, e.enrollment_date, e.last_accessed, e.progress_percentage, e.completion_date, e.is_completed
+        ORDER BY e.enrollment_date DESC`;
+    
+    const result = await db.query(query, isAdmin ? [] : [instructorId]);
+    
+    // Calculate overview stats
+    const total = result.rows.length;
+    const yetToStart = result.rows.filter(r => r.status === 'yet-to-start').length;
+    const inProgress = result.rows.filter(r => r.status === 'in-progress').length;
+    const completed = result.rows.filter(r => r.status === 'completed').length;
+    
+    res.json({
+      overview: { total, yetToStart, inProgress, completed },
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Reporting error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add course topic/content
+app.post('/api/courses/:courseId/topics', async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { title, type, duration, video_url, description, responsible } = req.body;
+
+    // Get or create default module
+    let moduleResult = await db.query(
+      'SELECT id FROM course_modules WHERE course_id = $1 LIMIT 1',
+      [courseId]
+    );
+
+    let moduleId;
+    if (moduleResult.rows.length === 0) {
+      const newModule = await db.query(
+        'INSERT INTO course_modules (course_id, title, order_index) VALUES ($1, $2, $3) RETURNING id',
+        [courseId, 'Main Content', 1]
+      );
+      moduleId = newModule.rows[0].id;
+    } else {
+      moduleId = moduleResult.rows[0].id;
+    }
+
+    // Insert topic
+    const result = await db.query(
+      `INSERT INTO module_topics (module_id, title, content_type, duration, content_url, description, order_index, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
+      [moduleId, title, type, duration || 0, video_url || null, description || null, 1]
+    );
+
+    res.json({
+      id: result.rows[0].id,
+      title,
+      type,
+      duration,
+      video_url,
+      description,
+    });
+  } catch (error) {
+    console.error('Error adding topic:', error);
+    res.status(500).json({ error: 'Failed to add content' });
   }
 });
 

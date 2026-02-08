@@ -8,7 +8,12 @@ import {
   Globe, 
   Pencil, 
   Share2, 
-  Trash2 
+  Trash2,
+  MessageCircle,
+  Send,
+  Facebook,
+  Instagram,
+  Mail
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -16,9 +21,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export interface AdminCourseCardProps {
   id: string;
@@ -47,6 +56,46 @@ export function AdminCourseCard({
   onShare,
   onDelete
 }: AdminCourseCardProps) {
+  const courseUrl = `${window.location.origin}/courses/${id}`;
+  const { toast } = useToast();
+
+  const handleShare = (platform: string) => {
+    const text = encodeURIComponent(`Check out this course: ${title}`);
+    const url = encodeURIComponent(courseUrl);
+    
+    const shareUrls: Record<string, string> = {
+      whatsapp: `https://wa.me/?text=${text}%20${url}`,
+      telegram: `https://t.me/share/url?url=${url}&text=${text}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+      instagram: courseUrl,
+      email: `mailto:?subject=${text}&body=${url}`,
+    };
+
+    if (platform === 'instagram') {
+      navigator.clipboard.writeText(courseUrl);
+      toast({
+        title: "Link copied!",
+        description: "You can now share it on Instagram",
+      });
+    } else if (platform === 'email') {
+      window.location.href = shareUrls[platform];
+    } else {
+      const newWindow = window.open(shareUrls[platform], '_blank', 'noopener,noreferrer');
+      if (newWindow) {
+        toast({
+          title: "Opening share dialog",
+          description: `Sharing on ${platform.charAt(0).toUpperCase() + platform.slice(1)}`,
+        });
+      } else {
+        navigator.clipboard.writeText(courseUrl);
+        toast({
+          title: "Link copied!",
+          description: "Please allow popups or paste the link manually",
+        });
+      }
+    }
+    onShare?.();
+  };
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -86,10 +135,34 @@ export function AdminCourseCard({
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onShare}>
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => handleShare('whatsapp')}>
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    WhatsApp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleShare('telegram')}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Telegram
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleShare('facebook')}>
+                    <Facebook className="h-4 w-4 mr-2" />
+                    Facebook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleShare('instagram')}>
+                    <Instagram className="h-4 w-4 mr-2" />
+                    Instagram
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleShare('email')}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
                 <Trash2 className="h-4 w-4 mr-2" />

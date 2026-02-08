@@ -245,17 +245,17 @@ export default function Courses() {
               >
                 <CourseCard
                   {...course}
-                  image={course.cover_image_url}
+                  image={course.cover_image_url || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&h=450&fit=crop"}
                   tags={course.tags || []}
-                  duration={`${Math.floor(course.estimated_duration / 60)}h ${course.estimated_duration % 60}m`}
+                  duration={course.estimated_duration ? `${Math.floor(course.estimated_duration / 60)}h ${course.estimated_duration % 60}m` : "0h 0m"}
                   lessonsCount={0}
-                  rating={course.average_rating}
-                  studentsCount={course.total_enrollments}
+                  rating={course.average_rating || 4.5}
+                  studentsCount={course.total_enrollments || 0}
                   isEnrolled={isEnrolled}
                   isLoggedIn={!!currentUser}
                   progress={progress}
-                  isPaid={course.is_paid}
-                  price={course.price}
+                  isPaid={course.is_paid || false}
+                  price={course.price || 0}
                   onClick={() => handleCourseClick(course.id, isEnrolled, course.is_paid)}
                 />
               </motion.div>

@@ -29,6 +29,7 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminCoursesNew from "@/pages/admin/AdminCoursesNew";
 import AdminAttendees from "@/pages/admin/AdminAttendees";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import AdminHelpSupport from "@/pages/admin/AdminHelpSupport";
 import CourseForm from "@/pages/admin/CourseForm";
 import CourseReporting from "@/pages/admin/CourseReporting";
 import AdminReporting from "@/pages/admin/AdminReporting";
@@ -78,6 +79,7 @@ const App = () => (
             <Route path="courses/:courseId/quiz/:quizId" element={<QuizBuilder />} />
             <Route path="attendees" element={<AdminAttendees />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="help" element={<AdminHelpSupport />} />
             <Route path="reporting" element={<AdminReporting />} />
           </Route>
 

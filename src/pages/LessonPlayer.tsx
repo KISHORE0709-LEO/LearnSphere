@@ -35,7 +35,7 @@ export default function LessonPlayer() {
       setCurrentUser(JSON.parse(user));
     }
 
-    // Try to fetch topic from database
+    // Try to fetch topic from database (suppress console errors for expected failures)
     fetch(`http://localhost:3001/api/courses/${courseId}/modules/${moduleId}/topics/${topicId}`)
       .then(res => {
         if (!res.ok) throw new Error('Topic endpoint not found');
@@ -47,9 +47,33 @@ export default function LessonPlayer() {
         setIsCompleted(data.topic.is_completed || false);
         setLoading(false);
       })
-      .catch(err => {
-        console.log('Using mock topic data:', err.message);
-        // Use mock data as fallback
+      .catch(() => {
+        // Try localStorage fallback
+        const storageKey = `course_${courseId}_lessons`;
+        const savedLessons = localStorage.getItem(storageKey);
+        
+        if (savedLessons) {
+          const lessons = JSON.parse(savedLessons);
+          const foundTopic = lessons.find((lesson: any) => lesson.id === topicId);
+          
+          if (foundTopic) {
+            setTopic({
+              id: foundTopic.id,
+              title: foundTopic.title,
+              type: foundTopic.lesson_type,
+              duration: foundTopic.duration,
+              content_url: foundTopic.content_url || foundTopic.videoLink || "https://www.youtube.com/embed/dQw4w9WgXcQ",
+              description: foundTopic.description || "This lesson content is stored locally.",
+              is_completed: false
+            });
+            setModule({ id: moduleId, title: "Module" });
+            setIsCompleted(false);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Final fallback to mock data
         setTopic(getMockTopic(topicId || ''));
         setModule(getMockModule());
         setIsCompleted(false);
@@ -146,6 +170,7 @@ export default function LessonPlayer() {
                   title={topic.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  onLoad={handleVideoEnd}
                 />
               </div>
             )}
